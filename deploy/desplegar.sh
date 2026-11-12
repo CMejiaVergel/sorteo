@@ -2,6 +2,7 @@
 # Despliegue en el VPS: trae la rama main de GitHub, compila y recarga solo la API de este proyecto.
 # Uso (en el VPS):  /var/www/elpatodelasuerte/deploy/desplegar.sh
 set -euo pipefail
+umask 022   # nginx (www-data) tiene que poder leer los estáticos y las imágenes
 
 APP=/var/www/elpatodelasuerte
 DATOS=/var/lib/elpatodelasuerte
