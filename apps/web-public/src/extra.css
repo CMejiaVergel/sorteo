@@ -1,0 +1,252 @@
+/* Ajustes de la versión formal sobre los estilos del prototipo */
+/* "clip" evita el desplazamiento lateral sin convertir el body en contenedor de scroll
+   (con overflow-x:hidden en html y body la rueda del mouse dejaba de desplazar la página). */
+body {
+  overflow-x: clip;
+}
+.m-pie {
+  justify-content: center;
+}
+/* Pago: botón de WhatsApp y bloque Nequi */
+.btn-wa {
+  background: #1fa855;
+  border-color: #1fa855;
+  color: #ffffff;
+  min-height: 56px;
+  font-size: 17px;
+}
+.btn-wa:hover {
+  border-color: #1fa855;
+  filter: brightness(1.06);
+}
+.btn-nequi {
+  background: #200020;
+  border-color: #200020;
+  color: #ffffff;
+}
+.pago-nequi {
+  gap: 10px;
+}
+.pn-fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.pn-fila > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pn-fila small {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.pn-fila .nequi-num {
+  font-size: clamp(22px, 6.5vw, 30px);
+}
+.pn-valor {
+  font: 800 clamp(20px, 6vw, 26px) / 1.15 var(--f-display);
+}
+.pn-pasos {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+.cargando {
+  padding-block: 40px;
+  text-align: center;
+}
+
+/* Animación de inicio antes de la ruleta */
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  background: linear-gradient(180deg, #2f8fe0 0%, #5db2f0 38%, #a9d8f7 64%, #f6e8f0 82%, #f3e9ef 100%);
+}
+.intro .c-nubes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.intro-rayos {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 160vmax;
+  height: 160vmax;
+  margin: -80vmax 0 0 -80vmax;
+  background: repeating-conic-gradient(from 0deg, rgb(255 255 255 / 0.28) 0 9deg, transparent 9deg 22deg);
+  -webkit-mask: radial-gradient(circle, #000 0 22%, transparent 60%);
+  mask: radial-gradient(circle, #000 0 22%, transparent 60%);
+  animation:
+    intro-girar 9s linear infinite,
+    intro-aparecer 0.6s ease-out both;
+}
+.intro-centro {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: -6vh;
+}
+.intro-logo {
+  width: min(68vw, 46vh, 340px);
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+  filter: drop-shadow(0 14px 18px rgb(0 30 80 / 0.35));
+  animation: intro-logo 1.05s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+.intro-texto {
+  margin: 0;
+  animation: intro-texto 0.55s 0.75s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+.intro-texto span {
+  display: inline-block;
+  font: 400 clamp(30px, 9vw, 52px) / 1 'Luckiest Guy', 'Lilita One', Impact, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  background: linear-gradient(180deg, #fff7b0 0%, #ffe14a 38%, #ffb01f 62%, #f57c00 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  -webkit-text-stroke: 2px #5b1a8e;
+  paint-order: stroke fill;
+  filter: drop-shadow(0 3px 0 #5b1a8e) drop-shadow(0 6px 0 #3a0e5e);
+  transform: rotate(-2deg);
+}
+.intro-pieza {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  z-index: 1;
+  width: clamp(30px, 8vmin, 54px);
+  aspect-ratio: 1;
+  opacity: 0;
+  animation: intro-pieza 1.5s var(--d) cubic-bezier(0.15, 0.8, 0.25, 1) both;
+}
+.intro-pieza svg {
+  width: 100%;
+  height: 100%;
+}
+.intro-saltar {
+  position: absolute;
+  bottom: max(18px, env(safe-area-inset-bottom, 0px));
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: #3c2e5a;
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0;
+  animation: intro-aparecer 0.4s 1.2s both;
+}
+.intro.saliendo {
+  animation: intro-salir 0.45s ease-in forwards;
+}
+@keyframes intro-girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes intro-aparecer {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes intro-logo {
+  0% {
+    opacity: 0;
+    transform: scale(0.2) rotate(-25deg);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.1) rotate(4deg);
+  }
+  80% {
+    transform: scale(0.97) rotate(-1deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes intro-texto {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+@keyframes intro-pieza {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--a)) translateY(0) scale(0.3);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--a)) translateY(calc(-1 * var(--r))) scale(1) rotate(200deg);
+  }
+}
+@keyframes intro-salir {
+  to {
+    opacity: 0;
+    transform: scale(1.08);
+    visibility: hidden;
+  }
+}
+
+/* Página del sorteo sin encabezado: solo el botón de volver */
+main.sin-encabezado {
+  padding-top: max(12px, env(safe-area-inset-top, 0px));
+}
+main.sin-encabezado .back {
+  font-size: 17px;
+}
+.vale-boleta {
+  font-size: 15px;
+  color: var(--muted);
+}
+.vale-boleta b {
+  color: var(--ink);
+  font: 800 18px/1.2 var(--f-display);
+}
+.pv-titulo {
+  margin: 10px 0 0;
+  font-size: 20px;
+}
+
+/* Otra persona apartó primero: aviso claro con qué números y qué hacer. */
+.aviso-tomados{background:var(--taken-soft);border:1px solid var(--taken);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;animation:aviso-entra .25s ease-out}
+.aviso-tomados b{color:var(--taken);font-size:15px}
+.aviso-tomados p{margin:0;font-size:14px;line-height:1.45;color:var(--ink)}
+.aviso-tomados .num{font-weight:800}
+.aviso-tomados .row-actions{display:flex;flex-wrap:wrap;gap:8px}
+@keyframes aviso-entra{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+
+/* Límite por celular o bloqueo: pedir por WhatsApp. */
+.aviso-pedido{background:var(--sun-soft);border:1px solid var(--sun);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.aviso-pedido p{margin:0;font-size:14px;line-height:1.45}
+
+/* Tablero en vivo */
+.legend .en-vivo{margin-left:auto;color:var(--green);font-weight:700}
+.legend .en-vivo i{width:8px;height:8px;border-radius:50%;border:0;background:var(--green);vertical-align:1px;animation:latido 1.6s ease-in-out infinite}
+@keyframes latido{0%,100%{opacity:1}50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.legend .en-vivo i,.aviso-tomados{animation:none}}

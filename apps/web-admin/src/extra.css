@@ -1,0 +1,208 @@
+body {
+  overflow-x: clip;
+}
+.tabs a.tab {
+  text-decoration: none;
+  color: var(--ink);
+}
+.tabs a.tab.active {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+.cargando {
+  padding-block: 40px;
+  text-align: center;
+}
+.maq-rect {
+  pointer-events: none;
+}
+/* La ventana de la imagen no debe crecer con el ancho natural de la imagen (1080 px). */
+.exp-capa {
+  grid-template-columns: minmax(0, 1fr);
+}
+.exp-caja {
+  justify-self: center;
+  min-width: 0;
+}
+
+/* ---- Apartar desde el panel ---- */
+.sel-nums {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 4px;
+}
+.sel-nums button {
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  font: 700 clamp(11px, 3.1vw, 15px) / 1 var(--f-body, inherit);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.sel-nums button[aria-pressed='true'] {
+  background: var(--sun);
+  border-color: var(--sun);
+  color: var(--sun-ink);
+}
+.sel-nums button:disabled {
+  cursor: not-allowed;
+  background: var(--paper);
+  color: var(--muted);
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+.busca-lista {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--card);
+}
+.busca-lista > button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 8px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.busca-lista > button:hover {
+  background: var(--green-soft);
+}
+.busca-lista > p {
+  padding: 12px 14px;
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+}
+.busca-lista > .busca-nuevo {
+  border-bottom: 0;
+  font-weight: 700;
+  color: var(--green);
+}
+.persona-elegida {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 2px solid var(--green);
+  border-radius: 12px;
+  background: var(--green-soft);
+}
+.persona-elegida > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.seg-tipo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+.seg-tipo button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--ink);
+  font-weight: 700;
+  cursor: pointer;
+}
+.seg-tipo button[aria-checked='true'] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* ---- Participantes: pagos por número ---- */
+.fila-persona {
+  flex-wrap: wrap;
+}
+.nums-pago {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.nums-pago > * {
+  display: inline-grid;
+  place-items: center;
+  min-width: 40px;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid var(--sun);
+  background: var(--sun-soft);
+  color: var(--ink);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.nums-pago > .pag {
+  background: var(--green);
+  border-color: var(--green);
+  color: var(--green-ink);
+}
+.nums-pago > button {
+  min-width: 46px;
+  height: 44px;
+  cursor: pointer;
+}
+.nums-pago > button[aria-pressed='true'] {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+.state.parcial {
+  background: var(--green-soft);
+  color: var(--ink);
+}
+.fila-extra {
+  flex: 1 1 100%;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+details > summary {
+  cursor: pointer;
+  font-weight: 700;
+  padding-block: 6px;
+}
+.contacto-edit {
+  flex: 1 1 100%;
+  flex-direction: column;
+  align-items: stretch;
+}
+.contacto-edit > * {
+  width: 100%;
+}
+.row > .chip {
+  flex: none;
+}
+
+/* Seguridad */
+.tab-badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;margin-left:6px;border-radius:99px;background:var(--taken);color:#fff;font-size:12px;font-weight:800;vertical-align:1px}
+.aviso-seguridad{display:block;background:var(--taken-soft);border:1px solid var(--taken);color:var(--ink);border-radius:12px;padding:10px 14px;font-size:14px;font-weight:600;text-decoration:none}
+.alerta-pill{background:var(--taken);color:#fff}
+.row.alerta.nueva{border-color:var(--taken);background:var(--taken-soft)}
+.row.alerta .row-main,.row.disp .row-main{display:flex;flex-direction:column;gap:3px;min-width:0}
+.row.disp.bloq{border-color:var(--taken)}
+.row.disp.foco{box-shadow:0 0 0 3px var(--sun)}
+.state.bloq{background:var(--taken);color:#fff}
+.state.neutro{background:var(--paper);border:1px solid var(--line)}
+.row-limite{display:flex;gap:10px;align-items:flex-end}
+.row-limite .field{flex:1;min-width:0}
+.row.disp .state{vertical-align:2px;white-space:nowrap}

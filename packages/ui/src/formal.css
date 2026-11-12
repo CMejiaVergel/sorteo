@@ -1,0 +1,467 @@
+/* Ajustes de la versión formal sobre los estilos del prototipo: responsive en celular y PC. */
+
+/* ---------- Ruleta: todo cabe en el alto de la pantalla ---------- */
+.cielo {
+  min-height: 100svh;
+  justify-content: center;
+  gap: clamp(4px, 1.1svh, 12px);
+  padding-block: max(8px, env(safe-area-inset-top, 0px)) max(14px, env(safe-area-inset-bottom, 0px));
+  /* Alto disponible para la máquina: la pantalla menos título, tablón, botón y reglas. */
+  --alto-maquina: max(220px, calc(90svh - 300px));
+}
+.c-top {
+  min-height: 30px;
+}
+.c-titulo {
+  margin: 0 0 clamp(2px, 1svh, 12px);
+}
+.c-titulo span {
+  font-size: clamp(22px, min(9.2vw, 5svh), 52px);
+  white-space: nowrap;
+}
+.c-logo img,
+.c-logo svg {
+  height: clamp(80px, 16svh, 190px);
+}
+.c-mascota {
+  height: clamp(56px, 10svh, 110px);
+}
+
+/* Castillo por defecto */
+.c-juego {
+  width: min(100%, 420px, 46svh);
+}
+/* Máquina personalizada: la imagen se limita por alto y la caja se ajusta a ella,
+   así la ventana de los rodillos (en %) siempre cae en el hueco. */
+.c-juego:has(.maquina) {
+  width: min(100%, 520px);
+  margin-top: 0;
+}
+.maquina {
+  display: flex;
+  justify-content: center;
+}
+.maquina-caja {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+}
+.maquina-caja > img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: var(--alto-maquina);
+  filter: drop-shadow(0 14px 20px rgb(30 30 80 / 0.3));
+}
+.c-ranura.suelta {
+  width: min(100%, 330px);
+  margin-top: clamp(-18px, -2svh, -6px);
+  padding: 24px 12px 10px;
+}
+.c-ranura input,
+.c-ranura.suelta input {
+  min-height: clamp(44px, 7svh, 64px);
+  font-size: clamp(22px, min(7.2vw, 4.4svh), 30px);
+}
+.c-ranura input::placeholder {
+  font-size: clamp(16px, min(5vw, 3svh), 21px);
+}
+.lanza {
+  margin-top: clamp(8px, 1.8svh, 22px);
+  width: min(70%, 260px, calc(15svh * 2.25));
+}
+.lanza.lanza-img {
+  width: min(62%, 250px, calc(13svh * 1.65));
+}
+.c-reglas {
+  font-size: 12.5px;
+  padding: 5px 12px;
+  line-height: 1.35;
+}
+
+/* ---------- Encabezado con el logo del negocio ---------- */
+.brand-mark.con-logo {
+  background: transparent;
+  overflow: hidden;
+}
+.brand-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ---------- Menú: libres en cada tarjeta ---------- */
+.pc-libres {
+  margin: 4px clamp(4px, 1.4vw, 10px) 0;
+  font-size: clamp(9px, 7cqi, 13px);
+  font-weight: 700;
+  color: #c9a57a;
+  letter-spacing: 0.02em;
+}
+.pc-libres.pocos {
+  color: #ffd24a;
+}
+.m-intro {
+  width: min(100%, 560px);
+  margin-top: -8px;
+  text-align: center;
+  color: #f3d9a4;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* ---------- Sorteo: pasos y tablero centrado en pantallas grandes ---------- */
+.pasos {
+  display: flex;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: paso;
+}
+.pasos li {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pasos li::before {
+  counter-increment: paso;
+  content: counter(paso);
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  font-size: 12px;
+}
+.pasos li.actual {
+  color: var(--ink);
+  border-color: var(--green);
+}
+.pasos li.actual::before {
+  background: var(--green);
+  border-color: var(--green);
+  color: var(--green-ink);
+}
+.pasos li.hecho::before {
+  content: '✓';
+  background: var(--green-soft);
+  color: var(--green);
+}
+.zona-elegir {
+  width: 100%;
+  max-width: 640px;
+  margin-inline: auto;
+}
+.bar .bar-nums {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 52vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (min-width: 760px) {
+  .premios {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .premio.mayor,
+  .premio.ancho {
+    grid-column: auto;
+  }
+  .premio.total {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---------- Colores del sorteo (html.tema-sorteo, variables puestas por useTemaSorteo) ---------- */
+html.tema-sorteo {
+  --green: var(--t-c2);
+  --green-ink: var(--t-tinta2);
+  --green-soft: color-mix(in srgb, var(--t-c1) 16%, #ffffff);
+  --cab: color-mix(in srgb, var(--t-c2) 70%, #000000);
+  --cab-ink: #ffffff;
+  --paper: color-mix(in srgb, var(--t-c1) 8%, #f5f6f8);
+  --line: color-mix(in srgb, var(--t-c1) 28%, #d8dce2);
+  --taken-soft: color-mix(in srgb, var(--t-c1) 10%, #f6e0da);
+}
+@media (prefers-color-scheme: dark) {
+  html.tema-sorteo:not([data-theme='light']) {
+    --green: var(--t-c1);
+    --green-ink: var(--t-tinta1);
+    --green-soft: color-mix(in srgb, var(--t-c2) 30%, #101016);
+    --cab: color-mix(in srgb, var(--t-c2) 45%, #050508);
+    --cab-ink: #f2f2f5;
+    --paper: color-mix(in srgb, var(--t-c2) 16%, #09090d);
+    --card: color-mix(in srgb, var(--t-c2) 20%, #121217);
+    --line: color-mix(in srgb, var(--t-c1) 30%, #24242c);
+  }
+}
+html[data-theme='dark'].tema-sorteo {
+  --green: var(--t-c1);
+  --green-ink: var(--t-tinta1);
+  --green-soft: color-mix(in srgb, var(--t-c2) 30%, #101016);
+  --cab: color-mix(in srgb, var(--t-c2) 45%, #050508);
+  --paper: color-mix(in srgb, var(--t-c2) 16%, #09090d);
+  --card: color-mix(in srgb, var(--t-c2) 20%, #121217);
+  --line: color-mix(in srgb, var(--t-c1) 30%, #24242c);
+}
+html.tema-sorteo body {
+  background: var(--paper);
+}
+html.tema-sorteo .back,
+html.tema-sorteo .link-btn {
+  color: var(--green);
+}
+html.tema-sorteo .pill.dia,
+html.tema-sorteo .pill.noche {
+  background: var(--green);
+  color: var(--green-ink);
+}
+html.tema-sorteo .cell:hover:not(:disabled) {
+  border-color: var(--green);
+}
+
+/* ---------- Premios vistosos ---------- */
+.premios-v {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pv-total {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  color: #ffffff;
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgb(255 255 255 / 0.22), transparent 55%),
+    linear-gradient(135deg, var(--t-c1, #0e6a4e), var(--t-c2, #0c3a30));
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--t-c2, #0c3a30) 40%, transparent);
+}
+.pv-total::after {
+  content: '';
+  position: absolute;
+  inset: -40% -10%;
+  background: repeating-conic-gradient(from 0deg at 85% 50%, rgb(255 255 255 / 0.08) 0 8deg, transparent 8deg 20deg);
+  pointer-events: none;
+}
+.pv-moneda {
+  flex: 0 0 auto;
+  width: clamp(54px, 15vw, 72px);
+  aspect-ratio: 1;
+  filter: drop-shadow(0 6px 8px rgb(0 0 0 / 0.3));
+  animation: pv-flota 2.6s ease-in-out infinite;
+}
+.pv-moneda svg {
+  width: 100%;
+  height: 100%;
+}
+@keyframes pv-flota {
+  50% {
+    transform: translateY(-4px) rotate(-6deg);
+  }
+}
+.pv-total > div {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.pv-total small {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.92;
+}
+.pv-total b {
+  font: 400 clamp(36px, 11vw, 54px) / 1 'Anton', Impact, sans-serif;
+  letter-spacing: 0.01em;
+  text-shadow: 0 3px 0 rgb(0 0 0 / 0.25);
+  font-variant-numeric: tabular-nums;
+}
+.pv-total span {
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+.pv-grid {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.pv-grid.pv-1 {
+  grid-template-columns: minmax(0, 1fr);
+}
+.pv-grid.pv-3 > .pv-item:first-child {
+  grid-column: 1 / -1;
+}
+@media (min-width: 640px) {
+  .pv-grid.pv-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .pv-grid.pv-3 > .pv-item:first-child {
+    grid-column: auto;
+  }
+}
+.pv-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px 12px;
+  border-radius: 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--green);
+  min-width: 0;
+}
+.pv-ico {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 22px;
+  line-height: 1;
+}
+.pv-item small {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding-right: 26px;
+}
+.pv-item b {
+  font: 400 clamp(26px, 7.5vw, 34px) / 1.05 'Anton', Impact, sans-serif;
+  color: var(--green);
+  font-variant-numeric: tabular-nums;
+}
+.pv-item em {
+  font-style: normal;
+  font-size: 12.5px;
+  line-height: 1.3;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+.pv-ej {
+  display: inline-flex;
+  gap: 3px;
+}
+.pv-ej i {
+  font-style: normal;
+  width: 20px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 5px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  font: 800 13px/1 var(--f-display);
+  color: var(--muted);
+}
+.pv-ej i.si {
+  background: var(--green);
+  border-color: var(--green);
+  color: var(--green-ink);
+}
+.pv-boleta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--green-soft);
+  font-weight: 700;
+}
+.pv-boleta b {
+  font: 800 22px/1.1 var(--f-display);
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pv-moneda {
+    animation: none;
+  }
+}
+
+/* ---------- Ruleta con máquina: siempre cabe en la pantalla, sin desplazar ----------
+   La sección mide exactamente el alto visible (svh: con barras del navegador desplegadas).
+   Título, tablón, botón y reglas toman su tamaño; la máquina se queda con el espacio que sobra
+   y la imagen se limita a ese espacio con unidades de contenedor (cqh/cqw). */
+.cielo:has(.maquina) {
+  height: 100svh;
+  min-height: 0;
+}
+.cielo:has(.maquina) > * {
+  flex-shrink: 0;
+}
+.cielo:has(.maquina) > .c-juego {
+  flex: 1 1 0;
+  min-height: 0;
+  width: min(100%, 520px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.c-juego > * {
+  flex-shrink: 0;
+}
+.c-juego > .maquina {
+  flex: 1 1 0;
+  min-height: 150px;
+  width: 100%;
+  container-type: size;
+  align-items: center;
+}
+.maquina-caja > img {
+  max-height: 100cqh;
+  max-width: 100cqw;
+}
+/* Pantallas muy bajitas (celular acostado): se permite desplazar. */
+@media (max-height: 520px) {
+  .cielo:has(.maquina) {
+    height: auto;
+    min-height: 100svh;
+  }
+  .c-juego > .maquina {
+    flex: none;
+    height: 320px;
+  }
+}
+
+/* Ruleta sin placa ni reglas: el tablón del celular queda compacto y la máquina gana espacio. */
+.c-ranura,
+.c-ranura.suelta {
+  padding: 12px 12px;
+}
+.cielo:has(.maquina) > .c-juego {
+  width: min(100%, 560px);
+}

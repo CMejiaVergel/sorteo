@@ -1,0 +1,26 @@
+{
+  "name": "el-pato-de-la-suerte",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Web app para apartar números de sorteos (00–99) con ruleta diaria y panel privado.",
+  "workspaces": ["packages/*", "apps/*"],
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "dev": "concurrently -k -n api,publico,panel -c green,yellow,cyan \"npm run dev -w @pato/api\" \"npm run dev -w @pato/web-public\" \"npm run dev -w @pato/web-admin\"",
+    "semilla": "npm run semilla -w @pato/api",
+    "admin": "npm run admin -w @pato/api --",
+    "recursos": "npm run recursos -w @pato/api --",
+    "tipos": "tsc -p packages/shared && tsc -p packages/ui && tsc -p apps/api && tsc -p apps/web-public && tsc -p apps/web-admin",
+    "pruebas": "vitest run",
+    "formato": "prettier --check \"**/*.{ts,tsx,css,json}\"",
+    "verificar": "npm run tipos && npm run pruebas",
+    "build": "npm run build -w @pato/web-public && npm run build -w @pato/web-admin"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "prettier": "^3.4.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.0",
+    "@types/node": "^24.0.0"
+  }
+}
