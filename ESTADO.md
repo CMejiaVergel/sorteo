@@ -78,3 +78,12 @@
   - Panel → pestaña **Seguridad**: límite, alertas (número en la pestaña y aviso en todo el panel), dispositivos con modelo/navegador, red, a nombre de quién, números por sorteo, intentos; bloquear (con opción de liberar lo no pagado) y desbloquear.
   - `IP_CABECERA` (env): cabecera con la IP real detrás de un proxy (`cf-connecting-ip` en el túnel). El límite de peticiones ahora cuenta por IP real.
 - Pruebas: `apps/api/test/seguridad.test.ts` (12) + ticket y pedido en shared. Total 102.
+
+### 2026-11-12 — Despliegue en el VPS (elpatodelasuerte.co)
+- Repositorio: `github.com/CMejiaVergel/sorteo` (rama `main`, **público**: el nombre del subdominio del panel nunca va en el repo).
+- VPS compartido (PM2 + nginx del sistema, sin Docker; se aparta de docs/06 §6.3 para seguir el resto del servidor). Proceso PM2 `elpato-api` en `127.0.0.1:3030`, con Node 24 propio en `/opt/node-24` (el sistema trae Node 20 para las otras apps).
+- Rutas: código `/var/www/elpatodelasuerte` (con su `.env`, permisos 600), datos `/var/lib/elpatodelasuerte` (`pato.db` y `medios/`), estáticos `/srv/elpatodelasuerte/{web-public,web-admin}`, copias `/var/backups/elpatodelasuerte` (una por despliegue, últimas 30).
+- nginx: `/etc/nginx/sites-available/elpatodelasuerte`, generado desde `deploy/nginx.conf.example` reemplazando `__ADMIN_HOST__`. Certificado individual con certbot `--nginx` (HTTP-01, renovación automática): decisión del dueño, el nombre del panel queda en los registros públicos de certificados.
+- Desplegar: `git push` a `main` y en el VPS `/var/www/elpatodelasuerte/deploy/desplegar.sh`.
+- Datos iniciales: copia de la base local (sorteos de muestra y reservas ficticias incluidos) y sus imágenes; sesiones borradas.
+- Pendiente: registros DNS en Hostinger y certificado; cambiar la clave del administrador `miguel` (es la de desarrollo); sin `default_server 444` porque el nginx es compartido con otros sitios.
