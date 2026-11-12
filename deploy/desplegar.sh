@@ -27,6 +27,7 @@ npm run build
 for sitio in web-public web-admin; do
   rm -rf "/srv/elpatodelasuerte/$sitio.nuevo"
   cp -r "apps/$sitio/dist" "/srv/elpatodelasuerte/$sitio.nuevo"
+  chmod -R u=rwX,go=rX "/srv/elpatodelasuerte/$sitio.nuevo"
   rm -rf "/srv/elpatodelasuerte/$sitio"
   mv "/srv/elpatodelasuerte/$sitio.nuevo" "/srv/elpatodelasuerte/$sitio"
 done
