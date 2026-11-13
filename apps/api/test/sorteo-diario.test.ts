@@ -234,3 +234,41 @@ describe('diseño: tamaño y posición de la ruleta', () => {
     expect(malo.statusCode).toBe(422);
   });
 });
+
+describe('premio Unido (primera y última cifra)', () => {
+  it('es opcional: por defecto no existe, se activa por sorteo y llega a la página pública', async () => {
+    const { admin, app } = await preparar();
+    const sin = (await admin('POST', '/sorteos', { ...sorteoBase({ nombre: 'Sin unido' }) })).json().sorteo;
+    expect(sin.premio_unido).toBe(0);
+
+    const con = await admin('POST', '/sorteos', { ...sorteoBase({ nombre: 'Con unido', premio_unido: 50000 }) });
+    expect(con.statusCode).toBe(201);
+    const id = con.json().sorteo.id;
+    const pub = (await app.inject({ method: 'GET', url: `/api/public/sorteos/${id}` })).json();
+    expect(pub.premio_unido).toBe(50000);
+
+    // Desactivarlo es dejarlo en 0; negativo no se acepta.
+    expect((await admin('PUT', `/sorteos/${id}`, { premio_unido: 0 })).json().sorteo.premio_unido).toBe(0);
+    expect((await admin('PUT', `/sorteos/${id}`, { premio_unido: -5 })).statusCode).toBe(422);
+  });
+
+  it('la migración 6 agrega el premio en 0 a los sorteos que ya existían', () => {
+    const ruta = join(mkdtempSync(join(tmpdir(), 'pato-mig6-')), 'pato.db');
+    const vieja = new DatabaseSync(ruta);
+    for (const m of MIGRACIONES.slice(0, 5)) {
+      if (typeof m === 'string') vieja.exec(m);
+      else {
+        vieja.exec('PRAGMA foreign_keys = OFF');
+        vieja.exec(m.sql);
+        vieja.exec('PRAGMA foreign_keys = ON');
+      }
+    }
+    vieja.exec('PRAGMA user_version = 5');
+    vieja.exec(`INSERT INTO sorteos (id, nombre, valor_boleta, creado) VALUES ('s1', 'Paisita', 5000, 'x')`);
+    vieja.close();
+    const db = abrirDb(ruta);
+    expect(db.prepare('SELECT premio_unido FROM sorteos').get()).toEqual({ premio_unido: 0 });
+    expect(() => db.exec(`UPDATE sorteos SET premio_unido = -1`)).toThrow(/CHECK/);
+    db.close();
+  });
+});

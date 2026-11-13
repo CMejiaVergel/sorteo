@@ -201,7 +201,7 @@ Solo disponible en el subdominio de administración. Todas las rutas, salvo el l
 | `PATCH /sorteos/:id/reservas` | `{ telefono, pagado }` → marca todos los números de esa persona |
 | `DELETE /sorteos/:id/reservas?telefono=` | Libera los números de esa persona |
 
-Campos de un sorteo: `nombre`, `loteria`, `jornada`, `fecha`, `hora`, `orden`, `color`, `etiqueta`, `activo`, `valor_boleta`, `premio_total`, `premio_ultimas`, `premio_primeras`, `premio_medio`, `nequi`, `nequi_titular`, `imagen`, `logo_loteria`, `logo_ocupado`, `fondo_imagen`.
+Campos de un sorteo: `nombre`, `loteria`, `jornada`, `fecha`, `hora`, `orden`, `color`, `etiqueta`, `activo`, `valor_boleta`, `premio_total`, `premio_ultimas`, `premio_primeras`, `premio_medio`, `premio_unido`, `nequi`, `nequi_titular`, `imagen`, `logo_loteria`, `logo_ocupado`, `fondo_imagen`.
 
 ### Contactos
 
@@ -260,7 +260,7 @@ Medio (archivo de imagen)
 | `fecha` | fecha | |
 | `hora` | texto | Libre |
 | `valor_boleta` | entero | Mayor que 0 |
-| `premio_total`, `premio_ultimas`, `premio_primeras`, `premio_medio` | entero | 0 = no se muestra |
+| `premio_total`, `premio_ultimas`, `premio_primeras`, `premio_medio`, `premio_unido` | entero | 0 = no se muestra. `premio_unido` (primera y última cifra) es opcional por sorteo |
 | `nequi`, `nequi_titular` | texto | |
 | `color` | texto | Vacío = automático |
 | `etiqueta` | texto | Grupo especial |

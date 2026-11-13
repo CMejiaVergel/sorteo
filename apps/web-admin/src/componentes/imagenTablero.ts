@@ -55,7 +55,16 @@ function moneda(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number
 }
 
 /** Escribe el texto reduciendo la letra hasta que quepa en maxW. */
-function ajustado(ctx: CanvasRenderingContext2D, txt: string, x: number, y: number, maxW: number, size: number, font: string, peso = '') {
+function ajustado(
+  ctx: CanvasRenderingContext2D,
+  txt: string,
+  x: number,
+  y: number,
+  maxW: number,
+  size: number,
+  font: string,
+  peso = '',
+) {
   let s = size;
   do {
     ctx.font = `${peso}${s}px ${font}`;
@@ -70,7 +79,11 @@ export async function imagenTablero(
   op: { negocio: string; whatsapp: string; tapaGeneral: string | null },
 ): Promise<Blob> {
   try {
-    await Promise.all(['64px "Anton"', '700 30px "Figtree"', '800 30px "Figtree"', '600 30px "Figtree"', '500 30px "Figtree"'].map((f) => document.fonts.load(f)));
+    await Promise.all(
+      ['64px "Anton"', '700 30px "Figtree"', '800 30px "Figtree"', '600 30px "Figtree"', '500 30px "Figtree"'].map(
+        (f) => document.fonts.load(f),
+      ),
+    );
   } catch {
     /* se dibuja con las de respaldo */
   }
@@ -82,6 +95,7 @@ export async function imagenTablero(
       ['Premio mayor', s.premio_ultimas],
       ['Cifras del medio', s.premio_medio],
       ['Dos primeras', s.premio_primeras],
+      ['Unido', s.premio_unido],
     ] as [string, number][]
   ).filter((p) => p[1] > 0);
   const celda = (W - M * 2 - 9 * 10) / 10;
@@ -92,7 +106,11 @@ export async function imagenTablero(
   c.width = W;
   c.height = H;
   const ctx = c.getContext('2d')!;
-  const [portada, tapa, fondo] = await Promise.all([cargarImg(portadaDe(s)), cargarImg(s.logo_ocupado || op.tapaGeneral), cargarImg(s.fondo_imagen || FONDO_TABLERO)]);
+  const [portada, tapa, fondo] = await Promise.all([
+    cargarImg(portadaDe(s)),
+    cargarImg(s.logo_ocupado || op.tapaGeneral),
+    cargarImg(s.fondo_imagen || FONDO_TABLERO),
+  ]);
   const ANTON = '"Anton", Impact, "Arial Narrow", sans-serif';
   const BODY = '"Figtree", system-ui, sans-serif';
 
@@ -125,7 +143,13 @@ export async function imagenTablero(
   ctx.clip();
   if (portada) {
     const k = Math.max(pS / portada.width, pS / portada.height);
-    ctx.drawImage(portada, M + (pS - portada.width * k) / 2, 50 + (pS - portada.height * k) / 2, portada.width * k, portada.height * k);
+    ctx.drawImage(
+      portada,
+      M + (pS - portada.width * k) / 2,
+      50 + (pS - portada.height * k) / 2,
+      portada.width * k,
+      portada.height * k,
+    );
   } else {
     const gg = ctx.createLinearGradient(M, 50, M + pS, 50 + pS);
     gg.addColorStop(0, t.c1);
@@ -208,7 +232,13 @@ export async function imagenTablero(
       ctx.fill();
       if (tapa) {
         const k = Math.min((celda * 0.8) / tapa.width, (celda * 0.8) / tapa.height);
-        ctx.drawImage(tapa, cx + (celda - tapa.width * k) / 2, cy + (celda - tapa.height * k) / 2, tapa.width * k, tapa.height * k);
+        ctx.drawImage(
+          tapa,
+          cx + (celda - tapa.width * k) / 2,
+          cy + (celda - tapa.height * k) / 2,
+          tapa.width * k,
+          tapa.height * k,
+        );
       } else moneda(ctx, cx + celda / 2, cy + celda / 2, celda * 0.32);
     } else {
       ctx.fillStyle = '#FFFFFF';
@@ -229,7 +259,11 @@ export async function imagenTablero(
   }
   ctx.font = `700 30px ${BODY}`;
   ctx.fillStyle = '#F3D9A4';
-  ctx.fillText(`${libres} ${libres === 1 ? 'número disponible' : 'números disponibles'}  ·  tapados = ocupados`, W / 2, y + 10);
+  ctx.fillText(
+    `${libres} ${libres === 1 ? 'número disponible' : 'números disponibles'}  ·  tapados = ocupados`,
+    W / 2,
+    y + 10,
+  );
 
   // Pago por Nequi
   y = tabBot + 64;
@@ -242,11 +276,23 @@ export async function imagenTablero(
   ctx.fillStyle = '#0E6A4E';
   ajustado(ctx, 'APARTA TU NÚMERO Y PAGA POR NEQUI', W / 2, y + 50, W - M * 2 - 40, 26, BODY, '800 ');
   ctx.fillStyle = '#11231E';
-  ajustado(ctx, s.nequi ? formatearTelefono(s.nequi) : 'Escríbenos por WhatsApp', W / 2, y + 120, W - M * 2 - 40, 68, ANTON);
+  ajustado(
+    ctx,
+    s.nequi ? formatearTelefono(s.nequi) : 'Escríbenos por WhatsApp',
+    W / 2,
+    y + 120,
+    W - M * 2 - 40,
+    68,
+    ANTON,
+  );
   ctx.fillStyle = '#56675F';
   ajustado(
     ctx,
-    s.nequi_titular ? 'A nombre de ' + s.nequi_titular : op.whatsapp ? 'WhatsApp ' + formatearTelefono(op.whatsapp) : '',
+    s.nequi_titular
+      ? 'A nombre de ' + s.nequi_titular
+      : op.whatsapp
+        ? 'WhatsApp ' + formatearTelefono(op.whatsapp)
+        : '',
     W / 2,
     y + 170,
     W - M * 2 - 40,
@@ -254,5 +300,7 @@ export async function imagenTablero(
     BODY,
     '600 ',
   );
-  return new Promise((ok, no) => c.toBlob((b) => (b ? ok(b) : no(new Error('No se pudo crear la imagen'))), 'image/png'));
+  return new Promise((ok, no) =>
+    c.toBlob((b) => (b ? ok(b) : no(new Error('No se pudo crear la imagen'))), 'image/png'),
+  );
 }

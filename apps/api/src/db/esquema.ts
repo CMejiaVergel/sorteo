@@ -249,4 +249,8 @@ export const MIGRACIONES: Migracion[] = [
   ALTER TABLE config_ruleta ADD COLUMN premios_tres TEXT NOT NULL DEFAULT '{}';
   `,
   },
+  // 6: premio "Unido" (primera y última cifra del resultado), opcional por sorteo. 0 = el sorteo no lo da.
+  `
+  ALTER TABLE sorteos ADD COLUMN premio_unido INTEGER NOT NULL DEFAULT 0 CHECK (premio_unido >= 0);
+  `,
 ];

@@ -24,11 +24,11 @@ import { BotonFinalizar, PagoNequi } from '../componentes/Pago.tsx';
 type Paso = 'elegir' | 'datos' | 'listo';
 
 /** Ejemplo con un resultado de 4 cifras: resalta qué parte tiene que coincidir con tu número. */
-function Ejemplo({ desde }: { desde: number }) {
+function Ejemplo({ cifras }: { cifras: number[] }) {
   return (
     <span className="pv-ej" aria-hidden="true">
       {'4523'.split('').map((d, i) => (
-        <i key={i} className={i === desde || i === desde + 1 ? 'si' : ''}>
+        <i key={i} className={cifras.includes(i) ? 'si' : ''}>
           {d}
         </i>
       ))}
@@ -39,10 +39,12 @@ function Ejemplo({ desde }: { desde: number }) {
 function Premios({ s }: { s: SorteoPublico }) {
   const items = (
     [
-      ['🏆', 'Premio mayor', 'Tu número sale en las 2 últimas cifras', s.premio_ultimas, 2],
-      ['🥈', 'Cifras del medio', 'Tu número sale en las 2 cifras del medio', s.premio_medio, 1],
-      ['🥉', 'Dos primeras cifras', 'Tu número sale en las 2 primeras cifras', s.premio_primeras, 0],
-    ] as [string, string, string, number, number][]
+      ['🏆', 'Premio mayor', 'Tu número sale en las 2 últimas cifras', s.premio_ultimas, [2, 3]],
+      ['🥈', 'Cifras del medio', 'Tu número sale en las 2 cifras del medio', s.premio_medio, [1, 2]],
+      ['🥉', 'Dos primeras cifras', 'Tu número sale en las 2 primeras cifras', s.premio_primeras, [0, 1]],
+      // Premio especial y opcional: solo en los sorteos que lo activan (si sale 4523, gana el 43).
+      ['🔗', 'Unido', 'Tu número sale con la primera y la última cifra', s.premio_unido, [0, 3]],
+    ] as [string, string, string, number, number[]][]
   ).filter((x) => x[3] > 0);
   return (
     <section className="premios-v" aria-label="Premios">
@@ -61,14 +63,14 @@ function Premios({ s }: { s: SorteoPublico }) {
       )}
       {items.length > 0 && (
         <div className={`pv-grid pv-${items.length}`}>
-          {items.map(([ico, t, regla, v, desde]) => (
+          {items.map(([ico, t, regla, v, cifras]) => (
             <div className="pv-item" key={t}>
               <span className="pv-ico">{ico}</span>
               <small>{t}</small>
               <b>{dinero(v)}</b>
               <em>
                 {regla}
-                <Ejemplo desde={desde} />
+                <Ejemplo cifras={cifras} />
               </em>
             </div>
           ))}

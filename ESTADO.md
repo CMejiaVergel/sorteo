@@ -108,3 +108,8 @@
 - nginx del panel: CSP `frame-ancestors 'self'` (antes `'none'`) para permitir esa vista previa dentro del propio panel.
 - Pruebas: `packages/shared/test/disposicion.test.ts` + API de diseño. Total 124.
 - Corregido: las páginas HTML no recibían CSP, Referrer-Policy, Permissions-Policy ni HSTS (en nginx un `add_header` dentro de un `location` borra los del `server`). Ahora las cabeceras van en fragmentos incluidos en el server y en cada location con `add_header`; la configuración completa (con SSL) vive en `deploy/nginx/` y ya no depende de lo que escribió certbot.
+
+### 2026-11-13 — Premio Unido (opcional por sorteo)
+- Gana el número formado por la primera y la última cifra del resultado (si sale 4523, gana el 43). No aplica a todos los sorteos: se activa por sorteo en el editor (“Este sorteo da el premio Unido”) y desactivado queda en 0.
+- Migración 6: `sorteos.premio_unido` (entero ≥ 0, 0 = no se da). Se muestra en la página del sorteo (4.ª tarjeta, ejemplo con la 1.ª y 4.ª cifra resaltadas; 2×2 en celular, una fila en pantallas anchas) y en la imagen del tablero.
+- docs/01 y docs/05 actualizados. Pruebas: API (activar, desactivar, rechazar negativo) y migración 5→6. Total 126.

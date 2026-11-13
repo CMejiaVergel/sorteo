@@ -497,3 +497,9 @@ html.tema-sorteo .cell:hover:not(:disabled) {
 .cielo .lanza {
   z-index: 3;
 }
+/* Con el premio Unido activo hay 4 premios: 2×2 en celular, en una fila en pantallas anchas. */
+@media (min-width: 900px) {
+  .pv-grid.pv-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}

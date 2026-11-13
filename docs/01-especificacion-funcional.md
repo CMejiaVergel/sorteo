@@ -163,9 +163,10 @@ Si no hay sorteos activos: "No hay sorteos abiertos en este momento. Vuelve pron
 2. **Premio mayor** (dos últimas cifras).
 3. **Cifras del medio**.
 4. **Dos primeras cifras**.
-5. **Valor de la boleta**.
+5. **Unido** (opcional, solo en los sorteos que lo activan): gana el número formado por la primera y la última cifra del resultado (si sale 4523, gana el 43).
+6. **Valor de la boleta**.
 
-Los premios en 0 no se muestran. Los elementos 2 a 5 van en dos columnas; si quedan en número impar, el último ocupa todo el ancho. Todo debe verse sin desplazar de lado.
+Los premios en 0 no se muestran. Los elementos 2 a 6 van en dos columnas; si quedan en número impar, el último ocupa todo el ancho. Todo debe verse sin desplazar de lado.
 
 Si el sorteo no existe o está oculto: "Este sorteo ya no está disponible".
 
@@ -256,6 +257,7 @@ Cada fila: miniatura, nombre, `{fecha} · {precio} · {N}/100 ocupados`, pastill
 | | Premio mayor (dos últimas cifras) | |
 | | Premio dos primeras cifras | |
 | | Premio cifras del medio | |
+| | Premio Unido (primera y última cifra) | Opcional: se activa por sorteo; desactivado = 0 y no se muestra |
 | Pago | Número de Nequi · A nombre de | Propios de cada sorteo |
 | Imágenes | Portada de la tarjeta | Cuadrada |
 | | Logo de la lotería | |
@@ -369,7 +371,7 @@ Desde la gestión de un sorteo se genera una imagen PNG vertical de 1080 px de a
 
 - Portada, nombre del negocio, nombre del sorteo, fecha y hora, y lotería si aplica.
 - Franja dorada con **Premio total** y **Boleta**.
-- Premio mayor, cifras del medio y dos primeras (solo los que sean mayores que 0).
+- Premio mayor, cifras del medio, dos primeras y Unido (solo los que sean mayores que 0).
 - Tablero 00–99 con los ocupados tapados.
 - "N números disponibles · tapados = ocupados".
 - Nequi del sorteo y titular.

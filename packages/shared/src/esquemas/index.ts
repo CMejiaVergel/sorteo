@@ -62,6 +62,7 @@ export const esquemaSorteo = z
     premio_ultimas: entero.default(0),
     premio_primeras: entero.default(0),
     premio_medio: entero.default(0),
+    premio_unido: entero.default(0),
     // Número de cobro del sorteo: recibe el pago por Nequi y el ticket por WhatsApp. Obligatorio.
     nequi: z.preprocess(
       (v) => normalizarTelefono(v),

@@ -45,6 +45,7 @@ const S = (
   premio_ultimas: valor * 50,
   premio_primeras: valor * 10,
   premio_medio: valor * 10,
+  premio_unido: 0,
   nequi: '3001234567',
   nequi_titular: 'Nombre de ejemplo',
   imagen: '',

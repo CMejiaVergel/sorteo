@@ -48,6 +48,8 @@ export interface Sorteo {
   premio_ultimas: number;
   premio_primeras: number;
   premio_medio: number;
+  /** Premio "Unido": el número sale con la primera y la última cifra del resultado. 0 = este sorteo no lo da. */
+  premio_unido: number;
   nequi: string;
   nequi_titular: string;
   imagen: string;

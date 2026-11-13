@@ -23,6 +23,7 @@ const VACIO: SorteoDatos = {
   premio_ultimas: 0,
   premio_primeras: 0,
   premio_medio: 0,
+  premio_unido: 0,
   nequi: '',
   nequi_titular: '',
   imagen: '',
@@ -54,6 +55,8 @@ function Formulario({ id, inicial }: { id?: string; inicial: SorteoDatos }) {
   const [d, setD] = useState<SorteoDatos>(inicial);
   const [nums, setNums] = useState<Record<string, string>>({});
   const [fijos, setFijos] = useState('');
+  // Premio Unido: opcional, encendido si el sorteo ya lo tiene.
+  const [unido, setUnido] = useState(inicial.premio_unido > 0);
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
   const navegar = useNavigate();
@@ -108,10 +111,13 @@ function Formulario({ id, inicial }: { id?: string; inicial: SorteoDatos }) {
       premio_ultimas: n('premio_ultimas'),
       premio_primeras: n('premio_primeras'),
       premio_medio: n('premio_medio'),
+      // Desactivado = 0: el premio no existe para este sorteo.
+      premio_unido: unido ? n('premio_unido') : 0,
       nequi: normalizarTelefono(d.nequi),
       fecha: d.fecha || null,
     };
     if (!datos.nombre) return setError('Ponle un nombre al sorteo.');
+    if (unido && !datos.premio_unido) return setError('Escribe el valor del premio Unido o desactívalo.');
     if (!datos.gratis && !datos.valor_boleta)
       return setError('Escribe el valor de la boleta o marca el sorteo como gratis.');
     if (datos.max_por_celular < 0 || datos.max_por_celular > 100)
@@ -280,6 +286,18 @@ function Formulario({ id, inicial }: { id?: string; inicial: SorteoDatos }) {
             {numero('premio_medio', 'Premio cifras del medio')}
           </div>
           <p className="hint">Deja en 0 o vacío los premios que no apliquen y no se mostrarán.</p>
+          <div className="unido stack">
+            <label className="check">
+              <input type="checkbox" checked={unido} onChange={(e) => setUnido(e.target.checked)} /> Este sorteo da el
+              premio <b>Unido</b>
+            </label>
+            <p className="hint" style={{ marginTop: 0 }}>
+              Premio especial y opcional: gana quien tenga el número formado por la <b>primera</b> y la <b>última</b>{' '}
+              cifra del resultado. Ejemplo: si sale 4523, gana el <b>43</b>. Actívalo solo en los sorteos que lo
+              entregan.
+            </p>
+            {unido && numero('premio_unido', 'Premio Unido (primera y última cifra)', { placeholder: '50000' })}
+          </div>
         </div>
         <div className="panel stack">
           <h3>Cobro del sorteo</h3>

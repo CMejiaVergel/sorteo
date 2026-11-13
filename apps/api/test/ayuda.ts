@@ -52,6 +52,7 @@ export const sorteoBase = (extra: Partial<SorteoEntrada> = {}): SorteoEntrada =>
   premio_ultimas: 500000,
   premio_primeras: 100000,
   premio_medio: 100000,
+  premio_unido: 0,
   nequi: '3001234567',
   nequi_titular: 'Titular',
   imagen: '',
