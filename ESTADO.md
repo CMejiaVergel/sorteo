@@ -86,4 +86,5 @@
 - nginx: `/etc/nginx/sites-available/elpatodelasuerte`, generado desde `deploy/nginx.conf.example` reemplazando `__ADMIN_HOST__`. Certificado individual con certbot `--nginx` (HTTP-01, renovación automática): decisión del dueño, el nombre del panel queda en los registros públicos de certificados.
 - Desplegar: `git push` a `main` y en el VPS `/var/www/elpatodelasuerte/deploy/desplegar.sh`.
 - Datos iniciales: copia de la base local (sorteos de muestra y reservas ficticias incluidos) y sus imágenes; sesiones borradas.
-- Pendiente: registros DNS en Hostinger y certificado; cambiar la clave del administrador `miguel` (es la de desarrollo); sin `default_server 444` porque el nginx es compartido con otros sitios.
+- 2026-11-13: DNS en Hostinger (A `@` y A del panel → 158.220.113.5, `www` CNAME) y certificados individuales emitidos con certbot `--nginx` (redirección a HTTPS, renovación automática con `certbot.timer`).
+- Pendiente: cambiar la clave del administrador `miguel` (es la de desarrollo); sin `default_server 444` porque el nginx es compartido con otros sitios.
