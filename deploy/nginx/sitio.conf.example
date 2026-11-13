@@ -1,0 +1,111 @@
+# nginx del VPS (docs/06 §6.4). En el VPS: /etc/nginx/sites-available/elpatodelasuerte, generado con
+#   sed "s/__ADMIN_HOST__/<subdominio del panel>/g" deploy/nginx/sitio.conf.example
+# El nombre real del panel NO va en el repositorio. Las cabeceras viven en /etc/nginx/snippets/elpato-*.conf
+# (copias de deploy/nginx/elpato-*-cabeceras.conf). Certificados de Let's Encrypt con certbot (HTTP-01, se renuevan solos).
+
+# ---------- Sitio público ----------
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name elpatodelasuerte.co www.elpatodelasuerte.co;
+
+    ssl_certificate /etc/letsencrypt/live/elpatodelasuerte.co/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/elpatodelasuerte.co/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    root /srv/elpatodelasuerte/web-public;
+    index index.html;
+    include snippets/elpato-publico-cabeceras.conf;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml application/manifest+json;
+
+    location = /index.html {
+        include snippets/elpato-publico-cabeceras.conf;
+        add_header Cache-Control "no-cache" always;
+    }
+    location /assets/ {
+        include snippets/elpato-publico-cabeceras.conf;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+    }
+    location / {
+        try_files $uri /index.html;
+    }
+
+    location /api/public/ {
+        proxy_pass http://127.0.0.1:3030;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        # Tablero en vivo (Server-Sent Events): sin acumular y sin cortar en los ratos quietos.
+        proxy_buffering off;
+        proxy_read_timeout 1h;
+    }
+    location /api/ { return 404; }   # /api/admin no existe en el dominio público
+
+    location /medios/ {
+        alias /var/lib/elpatodelasuerte/medios/;
+        include snippets/elpato-publico-cabeceras.conf;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+    }
+
+    access_log /var/log/nginx/elpato.access.log;
+    error_log  /var/log/nginx/elpato.error.log;
+}
+
+# ---------- Panel de administración ----------
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name __ADMIN_HOST__;
+
+    ssl_certificate /etc/letsencrypt/live/__ADMIN_HOST__/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/__ADMIN_HOST__/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    root /srv/elpatodelasuerte/web-admin;
+    index index.html;
+    client_max_body_size 8m;
+    include snippets/elpato-panel-cabeceras.conf;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+
+    location = /index.html {
+        include snippets/elpato-panel-cabeceras.conf;
+        add_header Cache-Control "no-cache" always;
+    }
+    location / {
+        try_files $uri /index.html;
+    }
+
+    location /api/admin/ {
+        proxy_pass http://127.0.0.1:3030;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    location /api/ { return 404; }
+
+    location /medios/ {
+        alias /var/lib/elpatodelasuerte/medios/;
+    }
+
+    access_log /var/log/nginx/elpato-panel.access.log;
+    error_log  /var/log/nginx/elpato-panel.error.log;
+}
+
+# ---------- HTTP → HTTPS ----------
+server {
+    listen 80;
+    listen [::]:80;
+    server_name elpatodelasuerte.co www.elpatodelasuerte.co __ADMIN_HOST__;
+    return 301 https://$host$request_uri;
+}

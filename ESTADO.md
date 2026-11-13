@@ -83,7 +83,7 @@
 - Repositorio: `github.com/CMejiaVergel/sorteo` (rama `main`, **público**: el nombre del subdominio del panel nunca va en el repo).
 - VPS compartido (PM2 + nginx del sistema, sin Docker; se aparta de docs/06 §6.3 para seguir el resto del servidor). Proceso PM2 `elpato-api` en `127.0.0.1:3030`, con Node 24 propio en `/opt/node-24` (el sistema trae Node 20 para las otras apps).
 - Rutas: código `/var/www/elpatodelasuerte` (con su `.env`, permisos 600), datos `/var/lib/elpatodelasuerte` (`pato.db` y `medios/`), estáticos `/srv/elpatodelasuerte/{web-public,web-admin}`, copias `/var/backups/elpatodelasuerte` (una por despliegue, últimas 30).
-- nginx: `/etc/nginx/sites-available/elpatodelasuerte`, generado desde `deploy/nginx.conf.example` reemplazando `__ADMIN_HOST__`. Certificado individual con certbot `--nginx` (HTTP-01, renovación automática): decisión del dueño, el nombre del panel queda en los registros públicos de certificados.
+- nginx: `/etc/nginx/sites-available/elpatodelasuerte`, generado desde `deploy/nginx/sitio.conf.example` reemplazando `__ADMIN_HOST__` (cabeceras en `deploy/nginx/elpato-*-cabeceras.conf` → `/etc/nginx/snippets/`). Certificado individual con certbot `--nginx` (HTTP-01, renovación automática): decisión del dueño, el nombre del panel queda en los registros públicos de certificados.
 - Desplegar: `git push` a `main` y en el VPS `/var/www/elpatodelasuerte/deploy/desplegar.sh`.
 - Datos iniciales: copia de la base local (sorteos de muestra y reservas ficticias incluidos) y sus imágenes; sesiones borradas.
 - 2026-11-13: DNS en Hostinger (A `@` y A del panel → 158.220.113.5, `www` CNAME) y certificados individuales emitidos con certbot `--nginx` (redirección a HTTPS, renovación automática con `certbot.timer`).
@@ -107,3 +107,4 @@
 - Panel → Diseño → “Tamaño y posición en la pantalla”: pestañas por bloque, deslizadores con − y +, “como venía” y un celular de vista previa (iframe a `/ruleta/vista`, recibe el diseño sin guardar por `postMessage` del mismo origen).
 - nginx del panel: CSP `frame-ancestors 'self'` (antes `'none'`) para permitir esa vista previa dentro del propio panel.
 - Pruebas: `packages/shared/test/disposicion.test.ts` + API de diseño. Total 124.
+- Corregido: las páginas HTML no recibían CSP, Referrer-Policy, Permissions-Policy ni HSTS (en nginx un `add_header` dentro de un `location` borra los del `server`). Ahora las cabeceras van en fragmentos incluidos en el server y en cada location con `add_header`; la configuración completa (con SSL) vive en `deploy/nginx/` y ya no depende de lo que escribió certbot.
