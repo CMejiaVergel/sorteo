@@ -465,3 +465,35 @@ html.tema-sorteo .cell:hover:not(:disabled) {
 .cielo:has(.maquina) > .c-juego {
   width: min(100%, 560px);
 }
+
+/* ---------- Tamaño y posición de cada bloque (Panel → Diseño) ----------
+   Escala en veces (1 = normal), desplazamiento en % del ancho (vw) y del alto (svh) de la pantalla.
+   Es transform: no empuja a los demás, así cada bloque se acomoda sin descuadrar el resto. */
+.cielo .c-titulo {
+  transform: translate(calc(var(--titulo-x, 0) * 1vw), calc(var(--titulo-y, 0) * 1svh)) scale(var(--titulo-s, 1));
+}
+.cielo .maquina-caja,
+.cielo .castillo {
+  transform: translate(calc(var(--maquina-x, 0) * 1vw), calc(var(--maquina-y, 0) * 1svh)) scale(var(--maquina-s, 1));
+}
+.cielo .c-ranura.suelta {
+  transform: translate(calc(var(--celular-x, 0) * 1vw), calc(var(--celular-y, 0) * 1svh)) scale(var(--celular-s, 1));
+}
+.cielo .castillo .c-ranura {
+  transform: translate(calc(var(--celular-x, 0) * 1vw), calc(var(--celular-y, 0) * 1svh)) scale(var(--celular-s, 1));
+}
+.cielo .lanza {
+  transform: translate(calc(var(--boton-x, 0) * 1vw), calc(var(--boton-y, 0) * 1svh)) scale(var(--boton-s, 1));
+}
+/* Si la máquina crece encima de otros bloques, el celular y el botón siguen al frente y se pueden tocar. */
+.cielo .c-juego > .maquina,
+.cielo .castillo {
+  z-index: 1;
+}
+.cielo .c-ranura.suelta {
+  position: relative;
+  z-index: 2;
+}
+.cielo .lanza {
+  z-index: 3;
+}

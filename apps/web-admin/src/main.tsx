@@ -14,14 +14,18 @@ import { PaginaSorteos } from './paginas/Sorteos.tsx';
 import { PaginaEditor } from './paginas/Editor.tsx';
 import { PaginaGestion } from './paginas/Gestion.tsx';
 import { PaginaContactos } from './paginas/Contactos.tsx';
-import { PaginaRuleta, PaginaProbarRuleta } from './paginas/Ruleta.tsx';
+import { PaginaProbarRuleta, PaginaRuleta, PaginaVistaRuleta } from './paginas/Ruleta.tsx';
 import { PaginaDiseno } from './paginas/Diseno.tsx';
 import { PaginaAjustes } from './paginas/Ajustes.tsx';
 import { PaginaSeguridad } from './paginas/Seguridad.tsx';
 
 const cliente = new QueryClient({
   defaultOptions: {
-    queries: { retry: (n, e) => !(e instanceof FalloApi && e.status < 500) && n < 1, refetchOnWindowFocus: false, staleTime: 0 },
+    queries: {
+      retry: (n, e) => !(e instanceof FalloApi && e.status < 500) && n < 1,
+      refetchOnWindowFocus: false,
+      staleTime: 0,
+    },
   },
 });
 
@@ -32,7 +36,22 @@ createRoot(document.getElementById('app')!).render(
         <Sprite />
         <Routes>
           <Route path="/login" element={<PaginaLogin />} />
-          <Route path="/ruleta/probar" element={<Protegido sinMarco><PaginaProbarRuleta /></Protegido>} />
+          <Route
+            path="/ruleta/probar"
+            element={
+              <Protegido sinMarco>
+                <PaginaProbarRuleta />
+              </Protegido>
+            }
+          />
+          <Route
+            path="/ruleta/vista"
+            element={
+              <Protegido sinMarco>
+                <PaginaVistaRuleta />
+              </Protegido>
+            }
+          />
           <Route element={<Protegido />}>
             <Route path="/sorteos" element={<PaginaSorteos />} />
             <Route path="/sorteos/nuevo" element={<PaginaEditor />} />

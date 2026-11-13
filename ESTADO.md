@@ -100,3 +100,10 @@
 - **Lista para el grupo** (`listaWhatsApp` en shared): encabezado (predeterminado `LISTADO DE PARTICIPANTES PARA {SORTEO} ({FECHA})`), FIJOS y PARTICIPANTES, `números- Nombre`, ✅ en lo pagado, parcial en dos líneas (pagado arriba, pendiente abajo), ❌ opcional con “Marcar no pagados”, libres opcionales y final propio. Variables: sorteo, loteria, fecha, dia, hora, jornada, valor, premio, ocupados, libres, personas (en MAYÚSCULAS = dato en mayúsculas).
 - **Intro**: sin la franja blanca de abajo (era el piso de nubes de la ruleta); el cielo llena la pantalla.
 - Pruebas: `apps/api/test/sorteo-diario.test.ts` y `packages/shared/test/sorteo-diario.test.ts`. Total 119.
+
+### 2026-11-13 — Tamaño y posición de la pantalla de la ruleta
+- Con una máquina nueva la ruleta se veía pequeña: solo recibía el espacio que dejaban título, celular y botón.
+- `diseno.ruleta.disposicion`: escala (30–300 %) y desplazamiento x/y (−50…50 % del ancho/alto de pantalla) para título, máquina, campo del celular y botón LANZA. Por defecto 100/0/0 (sin cambios). Se aplica con variables CSS (`variablesDisposicion` en shared) y `transform` en `formal.css`: un bloque no empuja a los demás; celular y botón quedan al frente.
+- Panel → Diseño → “Tamaño y posición en la pantalla”: pestañas por bloque, deslizadores con − y +, “como venía” y un celular de vista previa (iframe a `/ruleta/vista`, recibe el diseño sin guardar por `postMessage` del mismo origen).
+- nginx del panel: CSP `frame-ancestors 'self'` (antes `'none'`) para permitir esa vista previa dentro del propio panel.
+- Pruebas: `packages/shared/test/disposicion.test.ts` + API de diseño. Total 124.

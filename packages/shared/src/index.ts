@@ -9,4 +9,5 @@ export * from './cobro.ts';
 export * from './temas.ts';
 export * from './simbolos.ts';
 export * from './tipos.ts';
-export type { ConfigRuleta, Diseno, SorteoEntrada, UsoMedio } from './esquemas/index.ts';
+export type { ConfigRuleta, Diseno, ElementoPantalla, SorteoEntrada, UsoMedio } from './esquemas/index.ts';
+export * from './disposicion.ts';

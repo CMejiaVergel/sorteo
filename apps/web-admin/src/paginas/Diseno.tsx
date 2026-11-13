@@ -6,6 +6,7 @@ import { avisar, BotonDobleToque } from '@pato/ui';
 import { api } from '../api/cliente.ts';
 import { Cargando, ErrorPanel } from '../componentes/Marco.tsx';
 import { SelectorImagen } from '../componentes/SelectorImagen.tsx';
+import { AjusteDisposicion } from '../componentes/AjusteDisposicion.tsx';
 
 type Ruleta = Diseno['ruleta'];
 
@@ -198,6 +199,7 @@ export function PaginaDiseno() {
             />
           </div>
         </div>
+        <AjusteDisposicion diseno={d} alCambiar={(p) => setR('disposicion', p)} />
         <div className="panel stack">
           <h3>Números ocupados</h3>
           <p className="muted small">

@@ -6,6 +6,7 @@ import {
   telefonoValido,
   textoCelular,
   premioTrio,
+  variablesDisposicion,
   type Diseno,
   type PremiosTres,
   type Simbolo,
@@ -248,6 +249,7 @@ export function Ruleta({
     '--piedra': d.colorCastillo,
     '--lanza': d.colorBoton,
     ...(d.fondo ? { '--fondo': `url('${d.fondo}')` } : {}),
+    ...variablesDisposicion(d.disposicion),
   } as CSSProperties;
   const conLogo = !!d.logo && !d.ocultarLogo;
 

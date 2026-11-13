@@ -163,6 +163,20 @@ export const esquemaAjustes = z.object({
 const color = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 const pct = z.coerce.number().min(0).max(100);
 
+/**
+ * Tamaño y posición de un elemento de la pantalla de la ruleta.
+ * escala en % del tamaño normal; x en % del ancho de la pantalla; y en % del alto. 100/0/0 = como viene.
+ */
+const elementoPantalla = z
+  .object({
+    escala: z.coerce.number().min(30).max(300).default(100),
+    x: z.coerce.number().min(-50).max(50).default(0),
+    y: z.coerce.number().min(-50).max(50).default(0),
+  })
+  .default({});
+export const ELEMENTOS_PANTALLA = ['titulo', 'maquina', 'celular', 'boton'] as const;
+export type ElementoPantalla = (typeof ELEMENTOS_PANTALLA)[number];
+
 /** Documento de personalización (docs/03 §5). null = usar la proforma base. */
 export const esquemaDiseno = z.object({
   ruleta: z
@@ -178,6 +192,15 @@ export const esquemaDiseno = z.object({
       botonImagen: rutaMedio.nullable().default(null),
       colorCastillo: color.default('#4B57A0'),
       colorBoton: color.default('#E2402F'),
+      // Tamaño y posición de cada bloque: así una máquina nueva no queda pequeña y todo se acomoda a gusto.
+      disposicion: z
+        .object({
+          titulo: elementoPantalla,
+          maquina: elementoPantalla,
+          celular: elementoPantalla,
+          boton: elementoPantalla,
+        })
+        .default({}),
       simbolos: z
         .object(
           Object.fromEntries(SIMBOLOS.map((k) => [k, rutaMedio.nullable().default(null)])) as Record<

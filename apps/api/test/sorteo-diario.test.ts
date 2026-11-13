@@ -210,3 +210,27 @@ describe('premios de la ruleta por símbolo', () => {
     expect((await reposSqlite(db).ruleta.config()).premios_tres).toEqual({});
   });
 });
+
+describe('diseño: tamaño y posición de la ruleta', () => {
+  it('se guarda desde el panel y llega al sitio público; fuera de rango se rechaza', async () => {
+    const { admin, app } = await preparar();
+    const actual = (await admin('GET', '/diseno')).json();
+    const nuevo = {
+      ...actual,
+      ruleta: {
+        ...actual.ruleta,
+        disposicion: { ...actual.ruleta.disposicion, maquina: { escala: 150, x: 0, y: -5 } },
+      },
+    };
+    const r = await admin('PUT', '/diseno', nuevo);
+    expect(r.statusCode).toBe(200);
+    expect(r.json().ruleta.disposicion.maquina).toEqual({ escala: 150, x: 0, y: -5 });
+    const pub = (await app.inject({ method: 'GET', url: '/api/public/config' })).json();
+    expect(pub.diseno.ruleta.disposicion.maquina).toEqual({ escala: 150, x: 0, y: -5 });
+    const malo = await admin('PUT', '/diseno', {
+      ...nuevo,
+      ruleta: { ...nuevo.ruleta, disposicion: { boton: { escala: 999 } } },
+    });
+    expect(malo.statusCode).toBe(422);
+  });
+});

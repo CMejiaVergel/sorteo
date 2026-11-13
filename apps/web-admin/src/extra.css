@@ -273,3 +273,90 @@ details > summary {
   min-height: 0;
   vertical-align: -2px;
 }
+
+/* Tamaño y posición de la pantalla de la ruleta, con celular de vista previa */
+.dp {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+@media (min-width: 760px) {
+  .dp {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+    align-items: start;
+  }
+  .dp-vista {
+    position: sticky;
+    top: 12px;
+  }
+}
+.dp-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dp-tab {
+  position: relative;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+.dp-tab.on {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+.dp-tab i {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f2c94c;
+}
+.dp-fila {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dp-fila input[type='range'] {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  accent-color: #e2402f;
+}
+.dp-fila .btn {
+  flex: 0 0 auto;
+  width: 40px;
+  padding: 0;
+  font-size: 20px;
+}
+.dp-vista {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.dp-cel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 26px;
+  border: 6px solid #111;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.35);
+  box-sizing: content-box;
+  background: #000;
+}
+.dp-cel iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border: 0;
+  transform-origin: 0 0;
+}

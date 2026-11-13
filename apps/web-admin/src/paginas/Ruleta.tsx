@@ -9,6 +9,7 @@ import {
   SIMBOLOS,
   telefonoValido,
   type ConfigRuleta,
+  type Diseno,
   type Simbolo,
 } from '@pato/shared';
 import { avisar, BotonDobleToque, Ruleta, SvgSimbolo, useTemaNavegador } from '@pato/ui';
@@ -252,6 +253,52 @@ export function PaginaRuleta() {
         )}
       </div>
     </>
+  );
+}
+
+/**
+ * Vista previa para el celular de Panel → Diseño (va dentro de un iframe del mismo origen).
+ * Muestra el diseño que todavía no se ha guardado: la página de Diseño se lo envía con postMessage.
+ */
+export function PaginaVistaRuleta() {
+  const cfg = useQuery({ queryKey: ['ruleta'], queryFn: api.ruleta });
+  const guardado = useQuery({ queryKey: ['diseno'], queryFn: api.diseno });
+  const [diseno, setDiseno] = useState<Diseno | null>(null);
+  useEffect(() => {
+    const recibir = (e: MessageEvent) => {
+      if (e.origin !== location.origin || e.source !== window.parent) return;
+      const m = e.data as { tipo?: string; diseno?: Diseno };
+      if (m?.tipo === 'pato-diseno' && m.diseno) setDiseno(m.diseno);
+    };
+    window.addEventListener('message', recibir);
+    window.parent.postMessage({ tipo: 'pato-vista-lista' }, location.origin);
+    return () => window.removeEventListener('message', recibir);
+  }, []);
+  const d = diseno ?? guardado.data;
+  if (!cfg.data || !d) return <p className="wrap muted cargando">Cargando…</p>;
+  return (
+    <Ruleta
+      diseno={d}
+      premios={cfg.data}
+      pedirCelular
+      barraSuperior={null}
+      lanzar={async () => {
+        try {
+          return { ok: true, ...(await api.probarRuleta()) };
+        } catch {
+          return { ok: false, mensaje: 'Intenta de nuevo' };
+        }
+      }}
+      resultado={(g, reiniciar) => (
+        <div className={`c-res-card ${g.gano ? 'gano' : ''}`}>
+          <b>{g.gano ? `¡Ganaste ${g.premio}!` : 'Esta vez no salió'}</b>
+          <p>Vista previa: no se guardó ningún tiro.</p>
+          <button type="button" className="btn btn-primary btn-block" onClick={reiniciar}>
+            Volver
+          </button>
+        </div>
+      )}
+    />
   );
 }
 
