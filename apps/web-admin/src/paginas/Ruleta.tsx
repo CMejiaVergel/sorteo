@@ -1,10 +1,27 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { formatearFecha, formatearTelefono, NOMBRE_SIMBOLO, normalizarTelefono, telefonoValido, type ConfigRuleta, type Simbolo } from '@pato/shared';
-import { avisar, BotonDobleToque, Ruleta, useTemaNavegador } from '@pato/ui';
+import {
+  formatearFecha,
+  formatearTelefono,
+  NOMBRE_SIMBOLO,
+  normalizarTelefono,
+  SIMBOLOS,
+  telefonoValido,
+  type ConfigRuleta,
+  type Simbolo,
+} from '@pato/shared';
+import { avisar, BotonDobleToque, Ruleta, SvgSimbolo, useTemaNavegador } from '@pato/ui';
 import { api } from '../api/cliente.ts';
 import { Cargando, ErrorPanel } from '../componentes/Marco.tsx';
+
+const TRIOS: Record<Simbolo, string> = {
+  moneda: 'monedas',
+  trebol: 'tréboles',
+  herradura: 'herraduras',
+  siete: 'sietes',
+  diamante: 'diamantes',
+};
 
 export function PaginaRuleta() {
   const qc = useQueryClient();
@@ -30,7 +47,9 @@ export function PaginaRuleta() {
           </Link>
         </div>
       </div>
-      <p className="muted small">“Probar la ruleta” te deja girar las veces que quieras sin gastar ningún tiro ni guardar nada.</p>
+      <p className="muted small">
+        “Probar la ruleta” te deja girar las veces que quieras sin gastar ningún tiro ni guardar nada.
+      </p>
       <form
         className="panel stack"
         noValidate
@@ -48,29 +67,90 @@ export function PaginaRuleta() {
         }}
       >
         <label className="check">
-          <input type="checkbox" checked={c.activo} onChange={(e) => setC({ ...c, activo: e.target.checked })} /> Mostrar la tragamonedas en la página
+          <input type="checkbox" checked={c.activo} onChange={(e) => setC({ ...c, activo: e.target.checked })} />{' '}
+          Mostrar la tragamonedas en la página
         </label>
+        <h3>Premios</h3>
         <div className="grid2">
           <div className="field">
-            <label htmlFor="t-p3">Probabilidad de 3 iguales (%)</label>
-            <input id="t-p3" type="number" step="0.1" min="0" max="100" value={c.prob_tres} onChange={(e) => setC({ ...c, prob_tres: Number(e.target.value) || 0 })} />
+            <label htmlFor="t-r2">Un par igual (2 iguales)</label>
+            <input
+              id="t-r2"
+              type="text"
+              placeholder="$1.000 de descuento"
+              value={c.premio_dos}
+              onChange={(e) => setC({ ...c, premio_dos: e.target.value })}
+            />
           </div>
           <div className="field">
-            <label htmlFor="t-r3">Premio por 3 iguales</label>
-            <input id="t-r3" type="text" value={c.premio_tres} onChange={(e) => setC({ ...c, premio_tres: e.target.value })} />
+            <label htmlFor="t-r3">3 en línea (si el símbolo no tiene premio propio)</label>
+            <input
+              id="t-r3"
+              type="text"
+              placeholder="Un número gratis"
+              value={c.premio_tres}
+              onChange={(e) => setC({ ...c, premio_tres: e.target.value })}
+            />
+          </div>
+        </div>
+        <div className="stack" style={{ gap: 10 }}>
+          <span className="small muted">
+            Premio de cada trío (3 en línea del mismo símbolo). Vacío = el de “3 en línea” de arriba.
+          </span>
+          <div className="trios">
+            {SIMBOLOS.map((k) => (
+              <div className="field trio" key={k}>
+                <label htmlFor={`t-tr-${k}`}>
+                  <span className="trio-ico" aria-hidden="true">
+                    <SvgSimbolo k={k} />
+                    <SvgSimbolo k={k} />
+                    <SvgSimbolo k={k} />
+                  </span>
+                  Tres {TRIOS[k]}
+                </label>
+                <input
+                  id={`t-tr-${k}`}
+                  type="text"
+                  maxLength={80}
+                  placeholder={c.premio_tres || 'Premio'}
+                  value={c.premios_tres[k] ?? ''}
+                  onChange={(e) => setC({ ...c, premios_tres: { ...c.premios_tres, [k]: e.target.value } })}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+        <h3>Probabilidades</h3>
+        <div className="grid2">
+          <div className="field">
+            <label htmlFor="t-p3">3 en línea (%)</label>
+            <input
+              id="t-p3"
+              type="number"
+              step="0.1"
+              min="0"
+              max="100"
+              value={c.prob_tres}
+              onChange={(e) => setC({ ...c, prob_tres: Number(e.target.value) || 0 })}
+            />
           </div>
           <div className="field">
-            <label htmlFor="t-p2">Probabilidad de 2 iguales (%)</label>
-            <input id="t-p2" type="number" step="0.1" min="0" max="100" value={c.prob_dos} onChange={(e) => setC({ ...c, prob_dos: Number(e.target.value) || 0 })} />
-          </div>
-          <div className="field">
-            <label htmlFor="t-r2">Premio por 2 iguales</label>
-            <input id="t-r2" type="text" value={c.premio_dos} onChange={(e) => setC({ ...c, premio_dos: e.target.value })} />
+            <label htmlFor="t-p2">Un par igual (%)</label>
+            <input
+              id="t-p2"
+              type="number"
+              step="0.1"
+              min="0"
+              max="100"
+              value={c.prob_dos}
+              onChange={(e) => setC({ ...c, prob_dos: Number(e.target.value) || 0 })}
+            />
           </div>
         </div>
         <p className="hint">
-          Cada celular tira una vez al día. El resultado lo decide el servidor, así que nadie puede hacer trampa desde su celular. Con 1% y 10%, de cada
-          100 tiros saldrán más o menos 1 premio grande y 10 pequeños.
+          Cada celular tira una vez al día. El resultado lo decide el servidor, así que nadie puede hacer trampa desde
+          su celular. Con 1% y 10%, de cada 100 tiros saldrán más o menos 1 trío y 10 pares. Cuando sale un trío, los 5
+          símbolos tienen la misma probabilidad.
         </p>
         {error && <p className="err">{error}</p>}
         <div className="row-actions">
@@ -114,13 +194,21 @@ export function PaginaRuleta() {
           </BotonDobleToque>
         </div>
         <p className="muted small">
-          Todos los celulares vuelven a ver la ruleta al abrir el link, aunque ya hubieran jugado hoy. O reinicia solo el de un celular:
+          Todos los celulares vuelven a ver la ruleta al abrir el link, aunque ya hubieran jugado hoy. O reinicia solo
+          el de un celular:
         </p>
         <div className="mn-form">
           <label htmlFor="t-reset" className="oculto">
             Celular
           </label>
-          <input id="t-reset" type="tel" inputMode="numeric" placeholder="300 123 4567" value={telReinicio} onChange={(e) => setTelReinicio(e.target.value)} />
+          <input
+            id="t-reset"
+            type="tel"
+            inputMode="numeric"
+            placeholder="300 123 4567"
+            value={telReinicio}
+            onChange={(e) => setTelReinicio(e.target.value)}
+          />
           <button className="btn" type="submit">
             Reiniciar
           </button>
@@ -138,7 +226,8 @@ export function PaginaRuleta() {
                 <div className="row-main">
                   <b>{g.nombre || formatearTelefono(g.telefono)}</b>
                   <span className="small muted">
-                    {formatearTelefono(g.telefono)} · {formatearFecha(g.fecha)} · {g.resultado.map((k) => NOMBRE_SIMBOLO[k as Simbolo] ?? k).join(' · ')}
+                    {formatearTelefono(g.telefono)} · {formatearFecha(g.fecha)} ·{' '}
+                    {g.resultado.map((k) => NOMBRE_SIMBOLO[k as Simbolo] ?? k).join(' · ')}
                   </span>
                 </div>
                 <span className={`state ${g.reclamado ? 'pag' : ''}`}>{g.premio}</span>

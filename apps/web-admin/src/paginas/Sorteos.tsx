@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { dinero, formatearFecha } from '@pato/shared';
+import { dinero, formatearApertura, formatearFecha, sorteoAbierto } from '@pato/shared';
 import { portadaDe } from '@pato/ui';
 import { api } from '../api/cliente.ts';
 import { Cargando, ErrorPanel } from '../componentes/Marco.tsx';
@@ -29,14 +29,19 @@ export function PaginaSorteos() {
         <div className="rows">
           {q.data.map((s) => (
             <div className="row" key={s.id}>
-              <div className="thumb"><img src={portadaDe(s)} alt="" /></div>
+              <div className="thumb">
+                <img src={portadaDe(s)} alt="" />
+              </div>
               <div className="row-main">
                 <b>{s.nombre}</b>
                 <span className="small muted">
-                  {formatearFecha(s.fecha)} · {dinero(s.valor_boleta)} · {s.ocupados}/100 ocupados
+                  {formatearFecha(s.fecha)} · {s.gratis ? 'Gratis' : dinero(s.valor_boleta)} · {s.ocupados}/100 ocupados
+                  {s.activo && !sorteoAbierto(s, new Date()) && ` · abre ${formatearApertura(s.abre)}`}
                 </span>
               </div>
-              {s.activo ? (
+              {s.activo && !sorteoAbierto(s, new Date()) ? (
+                <span className="pill">Programado</span>
+              ) : s.activo ? (
                 <span className={`pill ${s.jornada}`}>{s.jornada === 'noche' ? 'Noche' : 'Día'}</span>
               ) : (
                 <span className="pill off">Oculto</span>

@@ -9,12 +9,20 @@ export const NOMBRE_SIMBOLO: Record<Simbolo, string> = {
   diamante: 'diamante',
 };
 
+/** Premio por cada trío (3 iguales) de cada símbolo. Un símbolo vacío o ausente usa el premio general `premio_tres`. */
+export type PremiosTres = Partial<Record<Simbolo, string>>;
+
 export interface Probabilidades {
   prob_tres: number;
   premio_tres: string;
   prob_dos: number;
   premio_dos: string;
+  premios_tres?: PremiosTres;
 }
+
+/** Premio de 3 iguales de ese símbolo: el propio si lo tiene, si no el general. */
+export const premioTrio = (c: Pick<Probabilidades, 'premio_tres' | 'premios_tres'>, k: Simbolo): string =>
+  c.premios_tres?.[k]?.trim() || c.premio_tres;
 
 export interface ResultadoGiro {
   resultado: [Simbolo, Simbolo, Simbolo];
@@ -38,7 +46,7 @@ function barajar<T>(lista: readonly T[], azar: Azar): T[] {
 export function decidirGiro(c: Probabilidades, azar: Azar = Math.random): ResultadoGiro {
   const m = barajar(SIMBOLOS, azar);
   const r = azar() * 100;
-  if (r < c.prob_tres) return { resultado: [m[0], m[0], m[0]], gano: 3, premio: c.premio_tres };
+  if (r < c.prob_tres) return { resultado: [m[0], m[0], m[0]], gano: 3, premio: premioTrio(c, m[0]) };
   if (r < c.prob_tres + c.prob_dos) {
     const opciones: [Simbolo, Simbolo, Simbolo][] = [
       [m[0], m[0], m[1]],

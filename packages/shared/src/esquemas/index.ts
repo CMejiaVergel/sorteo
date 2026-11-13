@@ -28,34 +28,66 @@ export const esquemaLogin = z.object({
   clave: z.string().max(256),
 });
 
-export const esquemaSorteo = z.object({
-  nombre: texto(80).min(1, 'Ponle un nombre al sorteo.'),
-  loteria: texto(80).default(''),
-  jornada: z.enum(['dia', 'noche']).default('dia'),
-  fecha: fecha.nullable().default(null),
-  hora: texto(30).default(''),
-  orden: z.coerce.number().int().min(-9999).max(9999).default(0),
-  // Uno de los colores predefinidos, un color propio (#RRGGBB) o vacío (automático según el nombre).
-  color: z.union([z.enum(COLORES as [string, ...string[]]), z.string().regex(/^#[0-9a-fA-F]{6}$/), z.literal('')]).default(''),
-  etiqueta: texto(40).default(''),
-  activo: z.boolean().default(true),
-  valor_boleta: z.coerce.number().int().positive('Escribe el valor de la boleta.').max(1_000_000_000),
-  premio_total: entero.default(0),
-  premio_ultimas: entero.default(0),
-  premio_primeras: entero.default(0),
-  premio_medio: entero.default(0),
-  // Número de cobro del sorteo: recibe el pago por Nequi y el ticket por WhatsApp. Obligatorio.
-  nequi: z.preprocess(
-    (v) => normalizarTelefono(v),
-    z.string().regex(/^3\d{9}$/, 'Escribe el número de cobro (Nequi y WhatsApp): 10 dígitos que empiecen por 3.'),
-  ),
-  nequi_titular: texto(80).min(2, 'Escribe a nombre de quién está el Nequi.'),
-  imagen: rutaMedio,
-  logo_loteria: rutaMedio,
-  logo_ocupado: rutaMedio,
-  fondo_imagen: rutaMedio,
-});
+export const esquemaSorteo = z
+  .object({
+    nombre: texto(80).min(1, 'Ponle un nombre al sorteo.'),
+    loteria: texto(80).default(''),
+    jornada: z.enum(['dia', 'noche']).default('dia'),
+    fecha: fecha.nullable().default(null),
+    hora: texto(30).default(''),
+    orden: z.coerce.number().int().min(-9999).max(9999).default(0),
+    // Uno de los colores predefinidos, un color propio (#RRGGBB) o vacío (automático según el nombre).
+    color: z
+      .union([z.enum(COLORES as [string, ...string[]]), z.string().regex(/^#[0-9a-fA-F]{6}$/), z.literal('')])
+      .default(''),
+    etiqueta: texto(40).default(''),
+    activo: z.boolean().default(true),
+    valor_boleta: z.coerce.number().int().min(0).max(1_000_000_000),
+    gratis: z.boolean().default(false),
+    max_por_celular: z.coerce
+      .number({ invalid_type_error: 'Escribe un número.' })
+      .int('Escribe un número entero.')
+      .min(0, 'Mínimo 0.')
+      .max(100, 'Máximo 100.')
+      .default(0),
+    abre: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'Escribe la fecha y la hora de apertura.')
+      .nullable()
+      .default(null),
+    imagen_agotado: rutaMedio,
+    lista_encabezado: texto(600).default(''),
+    lista_pie: texto(600).default(''),
+    premio_total: entero.default(0),
+    premio_ultimas: entero.default(0),
+    premio_primeras: entero.default(0),
+    premio_medio: entero.default(0),
+    // Número de cobro del sorteo: recibe el pago por Nequi y el ticket por WhatsApp. Obligatorio.
+    nequi: z.preprocess(
+      (v) => normalizarTelefono(v),
+      z.string().regex(/^3\d{9}$/, 'Escribe el número de cobro (Nequi y WhatsApp): 10 dígitos que empiecen por 3.'),
+    ),
+    nequi_titular: texto(80).min(2, 'Escribe a nombre de quién está el Nequi.'),
+    imagen: rutaMedio,
+    logo_loteria: rutaMedio,
+    logo_ocupado: rutaMedio,
+    fondo_imagen: rutaMedio,
+  })
+  // Un sorteo gratis vale 0; uno pagado necesita valor.
+  .refine((s) => s.gratis || s.valor_boleta > 0, { message: 'Escribe el valor de la boleta.', path: ['valor_boleta'] })
+  .transform((s) => (s.gratis ? { ...s, valor_boleta: 0 } : s));
 export type SorteoEntrada = z.infer<typeof esquemaSorteo>;
+
+/** Reiniciar el sorteo para un nuevo día: tablero limpio, misma configuración. */
+export const esquemaReinicio = z.object({
+  fecha: fecha,
+  abre: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
+    .nullable()
+    .default(null),
+  conservar_fijos: z.boolean().default(true),
+});
 
 export const esquemaTexto = z.object({ texto: z.string().max(20_000) });
 export const esquemaCopiarFijos = z.object({ origen_id: z.string().min(1) });
@@ -68,9 +100,17 @@ const nombrePersona = z
   .trim()
   .transform((v) => v.replace(/\s+/g, ' '))
   .pipe(z.string().min(2, 'Escribe el nombre (mínimo 2 letras).').max(60, 'El nombre es muy largo.'));
-const celularPersona = z.preprocess((v) => normalizarTelefono(v), z.string().regex(/^3\d{9}$/,'Escribe un celular de 10 dígitos que empiece por 3.'));
+const celularPersona = z.preprocess(
+  (v) => normalizarTelefono(v),
+  z.string().regex(/^3\d{9}$/, 'Escribe un celular de 10 dígitos que empiece por 3.'),
+);
 /** Apartar desde el panel a nombre de alguien (por ejemplo, pedidos por WhatsApp). */
-export const esquemaApartarAdmin = z.object({ telefono: celularPersona, nombre: nombrePersona, numeros: listaNumeros.min(1), fijo: z.boolean().default(false) });
+export const esquemaApartarAdmin = z.object({
+  telefono: celularPersona,
+  nombre: nombrePersona,
+  numeros: listaNumeros.min(1),
+  fijo: z.boolean().default(false),
+});
 export const esquemaContacto = z.object({ telefono: celularPersona, nombre: nombrePersona });
 
 /** Seguridad: bloquear o desbloquear un dispositivo; opcionalmente liberar sus números sin pagar. */
@@ -81,7 +121,11 @@ export const esquemaBloqueo = z.object({
 });
 /** Números por dispositivo y sorteo antes de pedir que aparte por WhatsApp. 0 = sin límite. */
 export const esquemaLimite = z.object({
-  limite: z.coerce.number({ invalid_type_error: 'Escribe un número.' }).int('Escribe un número entero.').min(0, 'Mínimo 0.').max(100, 'Máximo 100.'),
+  limite: z.coerce
+    .number({ invalid_type_error: 'Escribe un número.' })
+    .int('Escribe un número entero.')
+    .min(0, 'Mínimo 0.')
+    .max(100, 'Máximo 100.'),
 });
 
 export const esquemaRuleta = z
@@ -91,6 +135,15 @@ export const esquemaRuleta = z
     premio_tres: texto(80),
     prob_dos: z.coerce.number().min(0).max(100),
     premio_dos: texto(80),
+    // Premio por trío de cada símbolo; vacío = el premio general de 3 iguales.
+    premios_tres: z
+      .object(
+        Object.fromEntries(SIMBOLOS.map((k) => [k, texto(80).optional()])) as Record<
+          (typeof SIMBOLOS)[number],
+          z.ZodOptional<z.ZodString>
+        >,
+      )
+      .default({}),
   })
   .refine((c) => c.prob_tres + c.prob_dos <= 100, { message: 'La suma de las probabilidades no puede pasar de 100.' });
 export type ConfigRuleta = z.infer<typeof esquemaRuleta>;
@@ -119,23 +172,29 @@ export const esquemaDiseno = z.object({
       ocultarLogo: z.boolean().default(false),
       mascota: rutaMedio.nullable().default(null),
       maquina: rutaMedio.nullable().default(null),
-      ventana: z
-        .object({ x: pct, y: pct, w: pct, h: pct })
-        .default({ x: 16, y: 30, w: 68, h: 36 }),
+      ventana: z.object({ x: pct, y: pct, w: pct, h: pct }).default({ x: 16, y: 30, w: 68, h: 36 }),
       rodillosBlancos: z.boolean().default(false),
       escalaSimbolos: z.coerce.number().min(35).max(100).default(62),
       botonImagen: rutaMedio.nullable().default(null),
       colorCastillo: color.default('#4B57A0'),
       colorBoton: color.default('#E2402F'),
       simbolos: z
-        .object(Object.fromEntries(SIMBOLOS.map((k) => [k, rutaMedio.nullable().default(null)])) as Record<
-          (typeof SIMBOLOS)[number],
-          z.ZodDefault<z.ZodNullable<typeof rutaMedio>>
-        >)
+        .object(
+          Object.fromEntries(SIMBOLOS.map((k) => [k, rutaMedio.nullable().default(null)])) as Record<
+            (typeof SIMBOLOS)[number],
+            z.ZodDefault<z.ZodNullable<typeof rutaMedio>>
+          >,
+        )
         .default({}),
     })
     .default({}),
-  tablero: z.object({ logoOcupado: rutaMedio.nullable().default(null) }).default({}),
+  tablero: z
+    .object({
+      logoOcupado: rutaMedio.nullable().default(null),
+      /** Imagen general de "todos los números vendidos". */
+      agotado: rutaMedio.nullable().default(null),
+    })
+    .default({}),
 });
 export type Diseno = z.infer<typeof esquemaDiseno>;
 
@@ -151,13 +210,25 @@ export function limpiarDiseno(d: Diseno): Diseno {
       mascota: n(r.mascota),
       maquina: n(r.maquina),
       botonImagen: n(r.botonImagen),
-      simbolos: Object.fromEntries(Object.entries(r.simbolos).map(([k, v]) => [k, n(v)])) as Diseno['ruleta']['simbolos'],
+      simbolos: Object.fromEntries(
+        Object.entries(r.simbolos).map(([k, v]) => [k, n(v)]),
+      ) as Diseno['ruleta']['simbolos'],
     },
-    tablero: { logoOcupado: n(d.tablero.logoOcupado) },
+    tablero: { logoOcupado: n(d.tablero.logoOcupado), agotado: n(d.tablero.agotado) },
   };
 }
 
 export const disenoBase = (): Diseno => esquemaDiseno.parse({});
 
-export const USOS_MEDIO = ['fondo', 'maquina', 'portada', 'logo', 'simbolo', 'mascota', 'boton', 'ocupado'] as const;
+export const USOS_MEDIO = [
+  'fondo',
+  'maquina',
+  'portada',
+  'logo',
+  'simbolo',
+  'mascota',
+  'boton',
+  'ocupado',
+  'agotado',
+] as const;
 export type UsoMedio = (typeof USOS_MEDIO)[number];

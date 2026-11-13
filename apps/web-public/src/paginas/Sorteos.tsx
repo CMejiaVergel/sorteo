@@ -21,14 +21,20 @@ import { ResultadosMisNumeros } from '../componentes/ResultadosMisNumeros.tsx';
 function Tarjeta({ s }: { s: SorteoResumen }) {
   const t = temaDe(s);
   return (
-    <Link className="pcard" to={`/sorteo/${s.id}`} style={{ '--c1': t.c1, '--c2': t.c2, '--neon': t.neon } as CSSProperties}>
+    <Link
+      className="pcard"
+      to={`/sorteo/${s.id}`}
+      style={{ '--c1': t.c1, '--c2': t.c2, '--neon': t.neon } as CSSProperties}
+    >
       {s.hora && <span className="pc-hora">{horaCorta(s.hora)}</span>}
       <div className="pc-arte">
         <img src={portadaDe(s)} alt="" />
       </div>
       <h3 className="pc-nombre">{s.nombre}</h3>
       <span className="pc-lbl">Precio:</span>
-      <span className="pc-precio">{dinero(s.valor_boleta)}</span>
+      <span className={`pc-precio${s.gratis ? ' pc-gratis' : ''}`}>
+        {s.gratis ? '¡GRATIS!' : dinero(s.valor_boleta)}
+      </span>
     </Link>
   );
 }

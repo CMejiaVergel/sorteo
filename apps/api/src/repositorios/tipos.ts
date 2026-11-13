@@ -39,6 +39,12 @@ export class LimiteDispositivo extends Error {
     super('limite_dispositivo');
   }
 }
+/** El celular pasaría del máximo de números por persona del sorteo. */
+export class LimiteCelular extends Error {
+  constructor(public tiene: number) {
+    super('limite_celular');
+  }
+}
 export class UsuarioRepetido extends Error {
   constructor() {
     super('usuario_repetido');
@@ -51,13 +57,23 @@ export interface Persona {
 }
 
 export interface RepoSorteos {
-  listarActivos(): Promise<SorteoResumen[]>;
+  /** Sorteos visibles, con su apertura programada (la ruta pública quita los que aún no abren). */
+  listarActivos(): Promise<(SorteoResumen & { abre: string | null })[]>;
   listarTodos(): Promise<SorteoAdmin[]>;
   obtener(id: string): Promise<Sorteo | null>;
   guardar(datos: SorteoEntrada, id?: string): Promise<Sorteo>;
   eliminar(id: string): Promise<boolean>;
   /** Rutas de imágenes en uso por cualquier sorteo. */
   imagenesEnUso(): Promise<string[]>;
+  /**
+   * Deja el sorteo listo para un nuevo día (transacción): guarda una copia de sus reservas en `cierres`,
+   * borra las de los clientes (y los fijos si no se conservan), deja los fijos por pagar, limpia los
+   * liberados y pone la fecha y la apertura nuevas. null si no existe.
+   */
+  reiniciar(
+    id: string,
+    r: { fecha: string; abre: string | null; conservarFijos: boolean; ahora: string },
+  ): Promise<{ sorteo: Sorteo; archivadas: number; conservados: number } | null>;
 }
 
 export interface RepoReservas {
@@ -68,7 +84,13 @@ export interface RepoReservas {
    * si además trae `max` (> 0), lanza LimiteDispositivo cuando ese dispositivo pasaría de `max` números en el sorteo
    * (se revisa dentro de la misma transacción, así que peticiones simultáneas no lo saltan).
    */
-  apartar(sorteoId: string, numeros: number[], persona: Persona, tipo: 'cliente' | 'fijo', origen?: Origen): Promise<void>;
+  apartar(
+    sorteoId: string,
+    numeros: number[],
+    persona: Persona,
+    tipo: 'cliente' | 'fijo',
+    origen?: Origen,
+  ): Promise<void>;
   /** Sin `numeros`, todos los de la persona en el sorteo. */
   marcarPago(sorteoId: string, telefono: string, pagado: boolean, numeros?: number[]): Promise<number>;
   /** Borra las reservas y las guarda en el historial de liberados (transacción). Sin `numeros`, todas las de la persona. */
@@ -82,6 +104,8 @@ export interface Origen {
   dispositivo: string;
   ip: string;
   max?: number;
+  /** Máximo de números del celular en el sorteo (> 0). Lanza LimiteCelular; se revisa en la misma transacción. */
+  maxCelular?: number;
 }
 
 export interface RepoSeguridad {
@@ -185,7 +209,14 @@ export interface RepoMedios {
 }
 
 export interface RepoAuditoria {
-  anotar(a: { admin_id?: string | null; accion: string; entidad?: string; entidad_id?: string; detalle?: string; ip?: string }): Promise<void>;
+  anotar(a: {
+    admin_id?: string | null;
+    accion: string;
+    entidad?: string;
+    entidad_id?: string;
+    detalle?: string;
+    ip?: string;
+  }): Promise<void>;
 }
 
 export interface Repos {

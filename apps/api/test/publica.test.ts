@@ -7,7 +7,13 @@ describe('API pública', () => {
     expect((await app.inject('/api/public/salud')).json()).toEqual({ ok: true });
     const cfg = (await app.inject('/api/public/config')).json();
     expect(cfg.negocio).toBe('El Pato de la Suerte');
-    expect(cfg.ruleta).toEqual({ activo: true, premio_tres: 'Un número gratis', premio_dos: '$1.000 de descuento', reinicio: '' });
+    expect(cfg.ruleta).toEqual({
+      activo: true,
+      premio_tres: 'Un número gratis',
+      premio_dos: '$1.000 de descuento',
+      premios_tres: {},
+      reinicio: '',
+    });
     expect(JSON.stringify(cfg)).not.toMatch(/prob_/);
   });
 
@@ -27,13 +33,23 @@ describe('API pública', () => {
     const { app, repos } = await montar();
     const s = await repos.sorteos.guardar(sorteoBase());
     const url = `/api/public/sorteos/${s.id}/reservas`;
-    const a = await app.inject({ method: 'POST', url, payload: { numeros: [23, 48], nombre: 'Luisa', telefono: '300 000 0003' } });
+    const a = await app.inject({
+      method: 'POST',
+      url,
+      payload: { numeros: [23, 48], nombre: 'Luisa', telefono: '300 000 0003' },
+    });
     expect(a.statusCode).toBe(201);
-    expect(a.json()).toEqual({ nombre: 'Luisa', numeros: [23, 48], total: 20000 });
-    const b = await app.inject({ method: 'POST', url, payload: { numeros: [5, 23, 48], nombre: 'Carlos', telefono: '3109876543' } });
+    expect(a.json()).toEqual({ nombre: 'Luisa', numeros: [23, 48], total: 20000, gratis: false });
+    const b = await app.inject({
+      method: 'POST',
+      url,
+      payload: { numeros: [5, 23, 48], nombre: 'Carlos', telefono: '3109876543' },
+    });
     expect(b.statusCode).toBe(409);
     expect(b.json().error).toMatchObject({ codigo: 'numeros_ocupados', detalle: { ocupados: [23, 48] } });
-    expect(b.json().error.mensaje).toBe('Otra persona apartó los 23, 48 unos segundos antes que tú. Elige otros números.');
+    expect(b.json().error.mensaje).toBe(
+      'Otra persona apartó los 23, 48 unos segundos antes que tú. Elige otros números.',
+    );
     expect(await repos.reservas.ocupados(s.id)).toEqual([23, 48]);
   });
 
@@ -42,13 +58,22 @@ describe('API pública', () => {
     const s = await repos.sorteos.guardar(sorteoBase());
     const url = `/api/public/sorteos/${s.id}/reservas`;
     const p = (payload: object) => app.inject({ method: 'POST', url, payload });
-    expect((await p({ numeros: [1], nombre: 'Ana', telefono: '6001234567' })).json().error.codigo).toBe('telefono_invalido');
-    expect((await p({ numeros: [1], nombre: 'A', telefono: '3001234567' })).json().error.codigo).toBe('nombre_invalido');
-    expect((await p({ numeros: [], nombre: 'Ana', telefono: '3001234567' })).json().error.codigo).toBe('cantidad_invalida');
-    expect((await p({ numeros: Array.from({ length: 31 }, (_, i) => i), nombre: 'Ana', telefono: '3001234567' })).json().error.codigo).toBe(
+    expect((await p({ numeros: [1], nombre: 'Ana', telefono: '6001234567' })).json().error.codigo).toBe(
+      'telefono_invalido',
+    );
+    expect((await p({ numeros: [1], nombre: 'A', telefono: '3001234567' })).json().error.codigo).toBe(
+      'nombre_invalido',
+    );
+    expect((await p({ numeros: [], nombre: 'Ana', telefono: '3001234567' })).json().error.codigo).toBe(
       'cantidad_invalida',
     );
-    expect((await p({ numeros: [100], nombre: 'Ana', telefono: '3001234567' })).json().error.codigo).toBe('numero_fuera_de_rango');
+    expect(
+      (await p({ numeros: Array.from({ length: 31 }, (_, i) => i), nombre: 'Ana', telefono: '3001234567' })).json()
+        .error.codigo,
+    ).toBe('cantidad_invalida');
+    expect((await p({ numeros: [100], nombre: 'Ana', telefono: '3001234567' })).json().error.codigo).toBe(
+      'numero_fuera_de_rango',
+    );
   });
 
   it('20 peticiones simultáneas por el mismo número: una 201 y diecinueve 409', async () => {
@@ -90,7 +115,10 @@ describe('API pública', () => {
     const a = await app.inject(`/api/public/sorteos/${s.id}/ocupados`);
     expect(a.json()).toEqual({ ocupados: [1, 3] });
     expect(a.body).not.toMatch(/Ana|300000/);
-    const b = await app.inject({ url: `/api/public/sorteos/${s.id}/ocupados`, headers: { 'if-none-match': a.headers.etag as string } });
+    const b = await app.inject({
+      url: `/api/public/sorteos/${s.id}/ocupados`,
+      headers: { 'if-none-match': a.headers.etag as string },
+    });
     expect(b.statusCode).toBe(304);
   });
 
@@ -100,7 +128,9 @@ describe('API pública', () => {
     const tel = { telefono: '3000000001', nombre: 'Ana' };
     await repos.contactos.guardar([tel]);
     const viejo = await repos.sorteos.guardar(sorteoBase({ nombre: 'Viejo', fecha: '2026-11-02', activo: false }));
-    const reciente = await repos.sorteos.guardar(sorteoBase({ nombre: 'Reciente', fecha: '2026-11-03', activo: false }));
+    const reciente = await repos.sorteos.guardar(
+      sorteoBase({ nombre: 'Reciente', fecha: '2026-11-03', activo: false }),
+    );
     const activo = await repos.sorteos.guardar(sorteoBase({ nombre: 'Activo', fecha: '2026-10-01' }));
     for (const s of [viejo, reciente, activo]) await repos.reservas.apartar(s.id, [4, 2], tel, 'cliente');
     await repos.reservas.marcarPago(activo.id, tel.telefono, true);
@@ -122,7 +152,11 @@ describe('ruleta', () => {
     const b = await app.inject({ method: 'POST', url: '/api/public/ruleta/giro', payload: { telefono: '3001234567' } });
     expect(b.statusCode).toBe(409);
     expect(b.json().error.codigo).toBe('ya_giro');
-    expect(b.json().error.detalle).toMatchObject({ resultado: a.json().resultado, gano: 3, premio: 'Un número gratis' });
+    expect(b.json().error.detalle).toMatchObject({
+      resultado: a.json().resultado,
+      gano: 3,
+      premio: 'Un número gratis',
+    });
   });
 
   it('el cambio de día se calcula en hora de Colombia (23:59 y 00:01)', async () => {
@@ -138,10 +172,18 @@ describe('ruleta', () => {
 
   it('ruleta apagada y celular inválido', async () => {
     const { app, repos } = await montar();
-    expect((await app.inject({ method: 'POST', url: '/api/public/ruleta/giro', payload: { telefono: '123' } })).json().error.codigo).toBe(
-      'telefono_invalido',
-    );
-    await repos.ruleta.guardarConfig({ activo: false, prob_tres: 1, premio_tres: 'a', prob_dos: 10, premio_dos: 'b' });
+    expect(
+      (await app.inject({ method: 'POST', url: '/api/public/ruleta/giro', payload: { telefono: '123' } })).json().error
+        .codigo,
+    ).toBe('telefono_invalido');
+    await repos.ruleta.guardarConfig({
+      activo: false,
+      prob_tres: 1,
+      premio_tres: 'a',
+      prob_dos: 10,
+      premio_dos: 'b',
+      premios_tres: {},
+    });
     const r = await app.inject({ method: 'POST', url: '/api/public/ruleta/giro', payload: { telefono: '3001234567' } });
     expect(r.statusCode).toBe(409);
     expect(r.json().error.codigo).toBe('ruleta_inactiva');
@@ -151,7 +193,10 @@ describe('ruleta', () => {
     const { app } = await montar({ sinLimites: false });
     const r = [];
     for (let i = 0; i < 6; i++)
-      r.push((await app.inject({ method: 'POST', url: '/api/public/ruleta/giro', payload: { telefono: `310000000${i}` } })).statusCode);
+      r.push(
+        (await app.inject({ method: 'POST', url: '/api/public/ruleta/giro', payload: { telefono: `310000000${i}` } }))
+          .statusCode,
+      );
     expect(r.slice(0, 5).every((c) => c !== 429)).toBe(true);
     expect(r[5]).toBe(429);
   });

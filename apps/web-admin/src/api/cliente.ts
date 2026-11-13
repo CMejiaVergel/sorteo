@@ -1,4 +1,17 @@
-import type { Ajustes, ConfigRuleta, Contacto, Diseno, Giro, IntentoReserva, Liberado, Reserva, ResultadoGiro, ResumenSeguridad, Sorteo, SorteoAdmin } from '@pato/shared';
+import type {
+  Ajustes,
+  ConfigRuleta,
+  Contacto,
+  Diseno,
+  Giro,
+  IntentoReserva,
+  Liberado,
+  Reserva,
+  ResultadoGiro,
+  ResumenSeguridad,
+  Sorteo,
+  SorteoAdmin,
+} from '@pato/shared';
 
 export class FalloApi extends Error {
   constructor(
@@ -46,7 +59,11 @@ export const api = {
   alertasPendientes: () => get<{ pendientes: number }>('/seguridad/pendientes'),
   intentos: (id: string) => get<IntentoReserva[]>(`/seguridad/dispositivos/${encodeURIComponent(id)}/intentos`),
   bloquear: (id: string, b: { bloqueado: boolean; motivo?: string; liberar?: boolean }) =>
-    enviar<{ bloqueado: boolean; liberados: number }>('POST', `/seguridad/dispositivos/${encodeURIComponent(id)}/bloqueo`, b),
+    enviar<{ bloqueado: boolean; liberados: number }>(
+      'POST',
+      `/seguridad/dispositivos/${encodeURIComponent(id)}/bloqueo`,
+      b,
+    ),
   marcarAlertasVistas: () => enviar<{ marcadas: number }>('POST', '/seguridad/alertas/vistas'),
   guardarLimite: (limite: number) => enviar<{ limite: number }>('PUT', '/seguridad/limite', { limite }),
   login: (usuario: string, clave: string) => enviar<{ usuario: string }>('POST', '/auth/login', { usuario, clave }),
@@ -55,14 +72,20 @@ export const api = {
 
   sorteos: () => get<SorteoAdmin[]>('/sorteos'),
   sorteo: (id: string) => get<Sorteo>(`/sorteos/${id}`),
-  crearSorteo: (d: SorteoDatos & { fijos?: string }) => enviar<{ sorteo: Sorteo; fijos: ResultadoFijos }>('POST', '/sorteos', d),
+  crearSorteo: (d: SorteoDatos & { fijos?: string }) =>
+    enviar<{ sorteo: Sorteo; fijos: ResultadoFijos }>('POST', '/sorteos', d),
   editarSorteo: (id: string, d: Partial<SorteoDatos> & { fijos?: string }) =>
     enviar<{ sorteo: Sorteo; fijos: ResultadoFijos }>('PUT', `/sorteos/${id}`, d),
   eliminarSorteo: (id: string) => enviar('DELETE', `/sorteos/${id}`),
+  /** Nuevo día: tablero limpio, misma configuración; lo apartado queda en el historial. */
+  reiniciarSorteo: (id: string, d: { fecha: string; abre: string | null; conservar_fijos: boolean }) =>
+    enviar<{ sorteo: Sorteo; archivadas: number; conservados: number }>('POST', `/sorteos/${id}/reiniciar`, d),
   reservas: (id: string) => get<Reserva[]>(`/sorteos/${id}/reservas`),
   fijos: (id: string, texto: string) => enviar<ResultadoFijos>('POST', `/sorteos/${id}/fijos`, { texto }),
   copiarFijos: (id: string, origen_id: string) =>
-    enviar<{ copiadas: number; personas: number; saltados: string[] }>('POST', `/sorteos/${id}/fijos/copiar`, { origen_id }),
+    enviar<{ copiadas: number; personas: number; saltados: string[] }>('POST', `/sorteos/${id}/fijos/copiar`, {
+      origen_id,
+    }),
   apartar: (id: string, d: { telefono: string; nombre: string; numeros: number[]; fijo: boolean }) =>
     enviar<{ numeros: number[]; nombre: string; telefono: string }>('POST', `/sorteos/${id}/apartar`, d),
   /** Sin `numeros`, todos los de la persona. */
@@ -75,7 +98,8 @@ export const api = {
 
   contactos: (q = '') => get<Contacto[]>(`/contactos?q=${encodeURIComponent(q)}`),
   crearContacto: (c: { nombre: string; telefono: string }) => enviar<Contacto>('POST', '/contactos', c),
-  editarContacto: (antes: string, c: { nombre: string; telefono: string }) => enviar<Contacto>('PUT', `/contactos/${antes}`, c),
+  editarContacto: (antes: string, c: { nombre: string; telefono: string }) =>
+    enviar<Contacto>('PUT', `/contactos/${antes}`, c),
   guardarContactos: (texto: string) => enviar<{ guardados: number; errores: string[] }>('PUT', '/contactos', { texto }),
   borrarContacto: (tel: string) => enviar('DELETE', `/contactos/${tel}`),
 

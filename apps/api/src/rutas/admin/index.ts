@@ -1,5 +1,14 @@
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
-import { decidirGiro, dosDigitos, hoyBogota, leerTexto, normalizarTelefono, telefonoValido, type Diseno, type UsoMedio } from '@pato/shared';
+import {
+  decidirGiro,
+  dosDigitos,
+  hoyBogota,
+  leerTexto,
+  normalizarTelefono,
+  telefonoValido,
+  type Diseno,
+  type UsoMedio,
+} from '@pato/shared';
 import {
   esquemaAjustes,
   esquemaApartarAdmin,
@@ -12,6 +21,7 @@ import {
   esquemaLogin,
   esquemaPago,
   esquemaReclamado,
+  esquemaReinicio,
   esquemaRuleta,
   esquemaSorteo,
   esquemaTexto,
@@ -38,9 +48,16 @@ const LECTURA = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /** Todas las imágenes del documento de diseño. */
 const imagenesDiseno = (d: Diseno): string[] =>
-  [d.ruleta.fondo, d.ruleta.logo, d.ruleta.mascota, d.ruleta.maquina, d.ruleta.botonImagen, d.tablero.logoOcupado, ...Object.values(d.ruleta.simbolos)].filter(
-    (x): x is string => !!x,
-  );
+  [
+    d.ruleta.fondo,
+    d.ruleta.logo,
+    d.ruleta.mascota,
+    d.ruleta.maquina,
+    d.ruleta.botonImagen,
+    d.tablero.logoOcupado,
+    d.tablero.agotado,
+    ...Object.values(d.ruleta.simbolos),
+  ].filter((x): x is string => !!x);
 
 export const rutasAdmin: FastifyPluginAsync<{ sinLimites: boolean }> = async (app, opts) => {
   const { repos } = app.ctx;
@@ -87,10 +104,18 @@ export const rutasAdmin: FastifyPluginAsync<{ sinLimites: boolean }> = async (ap
       throw new ErrorApi(429, 'demasiados_intentos', 'Demasiados intentos. Espera unos minutos e intenta de nuevo.');
     }
     const admin = await repos.admins.porUsuario(usuario);
-    const ok = admin ? await verificarClave(admin.clave_hash, r.data.clave) : (await verificarClave(await hashRelleno(), r.data.clave), false);
+    const ok = admin
+      ? await verificarClave(admin.clave_hash, r.data.clave)
+      : (await verificarClave(await hashRelleno(), r.data.clave), false);
     if (!admin || !ok || !admin.activo) {
       intentos.fallo(...claves);
-      await repos.auditoria.anotar({ admin_id: admin?.id ?? null, accion: 'login_fallido', entidad: 'admin', detalle: usuario, ip: req.ip });
+      await repos.auditoria.anotar({
+        admin_id: admin?.id ?? null,
+        accion: 'login_fallido',
+        entidad: 'admin',
+        detalle: usuario,
+        ip: req.ip,
+      });
       throw new ErrorApi(401, 'credenciales', 'Usuario o contraseña incorrectos');
     }
     intentos.limpiar(`u:${usuario}`);
@@ -117,7 +142,10 @@ export const rutasAdmin: FastifyPluginAsync<{ sinLimites: boolean }> = async (ap
     const datos = esquemaSorteo.parse(body);
     const s = await repos.sorteos.guardar(datos);
     await anotar(req, 'crear_sorteo', 'sorteo', s.id, s.nombre);
-    const fijos = typeof body.fijos === 'string' && body.fijos.trim() ? await agregarFijos(app.ctx, s.id, body.fijos) : { agregadas: 0, errores: [] };
+    const fijos =
+      typeof body.fijos === 'string' && body.fijos.trim()
+        ? await agregarFijos(app.ctx, s.id, body.fijos)
+        : { agregadas: 0, errores: [] };
     return reply.status(201).send({ sorteo: s, fijos });
   });
 
@@ -134,8 +162,17 @@ export const rutasAdmin: FastifyPluginAsync<{ sinLimites: boolean }> = async (ap
     const datos = esquemaSorteo.parse({ ...antes, ...body });
     const s = await repos.sorteos.guardar(datos, antes.id);
     await anotar(req, 'editar_sorteo', 'sorteo', s.id, s.nombre);
-    await limpiarSinUso([antes.imagen, antes.logo_loteria, antes.logo_ocupado, antes.fondo_imagen]);
-    const fijos = typeof body.fijos === 'string' && body.fijos.trim() ? await agregarFijos(app.ctx, s.id, body.fijos) : { agregadas: 0, errores: [] };
+    await limpiarSinUso([
+      antes.imagen,
+      antes.logo_loteria,
+      antes.logo_ocupado,
+      antes.fondo_imagen,
+      antes.imagen_agotado,
+    ]);
+    const fijos =
+      typeof body.fijos === 'string' && body.fijos.trim()
+        ? await agregarFijos(app.ctx, s.id, body.fijos)
+        : { agregadas: 0, errores: [] };
     return { sorteo: s, fijos };
   });
 
@@ -144,7 +181,13 @@ export const rutasAdmin: FastifyPluginAsync<{ sinLimites: boolean }> = async (ap
     if (!antes) throw new ErrorApi(404, 'no_encontrado', 'No encontré ese sorteo.');
     await repos.sorteos.eliminar(antes.id);
     await anotar(req, 'eliminar_sorteo', 'sorteo', antes.id, antes.nombre);
-    await limpiarSinUso([antes.imagen, antes.logo_loteria, antes.logo_ocupado, antes.fondo_imagen]);
+    await limpiarSinUso([
+      antes.imagen,
+      antes.logo_loteria,
+      antes.logo_ocupado,
+      antes.fondo_imagen,
+      antes.imagen_agotado,
+    ]);
     return { ok: true };
   });
 
@@ -176,28 +219,73 @@ export const rutasAdmin: FastifyPluginAsync<{ sinLimites: boolean }> = async (ap
     } catch (e) {
       if (e instanceof NumerosOcupados) {
         const o = e.ocupados.map(dosDigitos).join(', ');
-        throw new ErrorApi(409, 'numeros_ocupados', `${o} ya ${e.ocupados.length === 1 ? 'está ocupado' : 'están ocupados'}. Quítalos e intenta de nuevo.`, {
-          ocupados: e.ocupados,
-        });
+        throw new ErrorApi(
+          409,
+          'numeros_ocupados',
+          `${o} ya ${e.ocupados.length === 1 ? 'está ocupado' : 'están ocupados'}. Quítalos e intenta de nuevo.`,
+          {
+            ocupados: e.ocupados,
+          },
+        );
       }
       throw e;
     }
-    await anotar(req, fijo ? 'apartar_fijo' : 'apartar_panel', 'sorteo', s.id, `${telefono}: ${lista.map(dosDigitos).join('-')}`);
+    await anotar(
+      req,
+      fijo ? 'apartar_fijo' : 'apartar_panel',
+      'sorteo',
+      s.id,
+      `${telefono}: ${lista.map(dosDigitos).join('-')}`,
+    );
     return reply.status(201).send({ numeros: lista, nombre, telefono });
   });
 
   app.patch<{ Params: { id: string } }>('/sorteos/:id/reservas', async (req) => {
     const { telefono, pagado, numeros } = esquemaPago.parse(req.body);
     const n = await repos.reservas.marcarPago(req.params.id, telefono, pagado, numeros);
-    await anotar(req, pagado ? 'marcar_pagado' : 'marcar_por_pagar', 'sorteo', req.params.id, numeros ? `${telefono}: ${numeros.map(dosDigitos).join('-')}` : telefono);
+    await anotar(
+      req,
+      pagado ? 'marcar_pagado' : 'marcar_por_pagar',
+      'sorteo',
+      req.params.id,
+      numeros ? `${telefono}: ${numeros.map(dosDigitos).join('-')}` : telefono,
+    );
     return { cambiadas: n };
   });
 
   app.post<{ Params: { id: string } }>('/sorteos/:id/reservas/liberar', async (req) => {
     const { telefono, numeros } = esquemaLiberar.parse(req.body);
     const n = await repos.reservas.liberar(req.params.id, telefono, numeros, ahora().toISOString());
-    await anotar(req, 'liberar', 'sorteo', req.params.id, `${telefono}: ${numeros ? numeros.map(dosDigitos).join('-') : 'todos'} (${n})`);
+    await anotar(
+      req,
+      'liberar',
+      'sorteo',
+      req.params.id,
+      `${telefono}: ${numeros ? numeros.map(dosDigitos).join('-') : 'todos'} (${n})`,
+    );
     return { liberadas: n };
+  });
+
+  // Nuevo día del sorteo: mismo sorteo, tablero limpio. Lo apartado queda guardado en el historial de cierres.
+  app.post<{ Params: { id: string } }>('/sorteos/:id/reiniciar', async (req) => {
+    const r = esquemaReinicio.safeParse(req.body);
+    if (!r.success)
+      throw new ErrorApi(422, 'datos_invalidos', 'Revisa la fecha del nuevo sorteo y la hora de apertura.');
+    const hecho = await repos.sorteos.reiniciar(req.params.id, {
+      fecha: r.data.fecha,
+      abre: r.data.abre,
+      conservarFijos: r.data.conservar_fijos,
+      ahora: ahora().toISOString(),
+    });
+    if (!hecho) throw new ErrorApi(404, 'no_encontrado', 'No encontré ese sorteo.');
+    await anotar(
+      req,
+      'reiniciar_sorteo',
+      'sorteo',
+      req.params.id,
+      `${hecho.archivadas} números al historial · fijos conservados: ${hecho.conservados} · fecha ${r.data.fecha}${r.data.abre ? ' · abre ' + r.data.abre : ''}`,
+    );
+    return hecho;
   });
 
   app.get<{ Params: { id: string } }>('/sorteos/:id/liberados', async (req) => repos.reservas.liberados(req.params.id));
@@ -224,7 +312,8 @@ export const rutasAdmin: FastifyPluginAsync<{ sinLimites: boolean }> = async (ap
     const buenos: { telefono: string; nombre: string }[] = [];
     const errores: string[] = [];
     for (const l of leerTexto(texto)) {
-      if (telefonoValido(l.telefono) && l.nombre.length >= 2 && !l.numeros.length) buenos.push({ telefono: l.telefono, nombre: l.nombre });
+      if (telefonoValido(l.telefono) && l.nombre.length >= 2 && !l.numeros.length)
+        buenos.push({ telefono: l.telefono, nombre: l.nombre });
       else errores.push(l.linea);
     }
     if (buenos.length) await repos.contactos.guardar(buenos);
@@ -235,7 +324,8 @@ export const rutasAdmin: FastifyPluginAsync<{ sinLimites: boolean }> = async (ap
   app.post('/contactos', async (req, reply) => {
     const c = esquemaContacto.parse(req.body);
     const ya = await repos.contactos.buscar(c.telefono);
-    if (ya) throw new ErrorApi(409, 'contacto_existe', `Ese celular ya está guardado como ${ya.nombre}.`, { contacto: ya });
+    if (ya)
+      throw new ErrorApi(409, 'contacto_existe', `Ese celular ya está guardado como ${ya.nombre}.`, { contacto: ya });
     await repos.contactos.guardar([c]);
     await anotar(req, 'crear_contacto', 'contacto', c.telefono, c.nombre);
     return reply.status(201).send(c);
@@ -246,12 +336,20 @@ export const rutasAdmin: FastifyPluginAsync<{ sinLimites: boolean }> = async (ap
     const antes = normalizarTelefono(req.params.telefono);
     const c = esquemaContacto.parse(req.body);
     try {
-      if (!(await repos.contactos.editar(antes, c))) throw new ErrorApi(404, 'no_encontrado', 'Ese contacto no existe.');
+      if (!(await repos.contactos.editar(antes, c)))
+        throw new ErrorApi(404, 'no_encontrado', 'Ese contacto no existe.');
     } catch (e) {
-      if (e instanceof CelularDeOtro) throw new ErrorApi(409, 'celular_de_otro', `Ese celular ya es de ${e.contacto.nombre}.`);
+      if (e instanceof CelularDeOtro)
+        throw new ErrorApi(409, 'celular_de_otro', `Ese celular ya es de ${e.contacto.nombre}.`);
       throw e;
     }
-    await anotar(req, 'editar_contacto', 'contacto', c.telefono, antes === c.telefono ? c.nombre : `${antes} → ${c.telefono}`);
+    await anotar(
+      req,
+      'editar_contacto',
+      'contacto',
+      c.telefono,
+      antes === c.telefono ? c.nombre : `${antes} → ${c.telefono}`,
+    );
     return c;
   });
 
@@ -286,7 +384,8 @@ export const rutasAdmin: FastifyPluginAsync<{ sinLimites: boolean }> = async (ap
 
   app.patch<{ Params: { id: string } }>('/ruleta/giros/:id', async (req) => {
     const { reclamado } = esquemaReclamado.parse(req.body);
-    if (!(await repos.ruleta.marcarReclamado(req.params.id, reclamado))) throw new ErrorApi(404, 'no_encontrado', 'Ese giro no existe.');
+    if (!(await repos.ruleta.marcarReclamado(req.params.id, reclamado)))
+      throw new ErrorApi(404, 'no_encontrado', 'Ese giro no existe.');
     await anotar(req, reclamado ? 'premio_entregado' : 'premio_no_entregado', 'giro', req.params.id);
     return { ok: true };
   });
@@ -301,7 +400,8 @@ export const rutasAdmin: FastifyPluginAsync<{ sinLimites: boolean }> = async (ap
 
   app.delete<{ Querystring: { telefono?: string; fecha?: string } }>('/ruleta/giros', async (req) => {
     const t = normalizarTelefono(req.query.telefono);
-    if (!telefonoValido(t)) throw new ErrorApi(422, 'telefono_invalido', 'Escribe un celular de 10 dígitos que empiece por 3.');
+    if (!telefonoValido(t))
+      throw new ErrorApi(422, 'telefono_invalido', 'Escribe un celular de 10 dígitos que empiece por 3.');
     const fecha = !req.query.fecha || req.query.fecha === 'hoy' ? hoyBogota(ahora(), app.ctx.zona) : req.query.fecha;
     const borrado = await repos.ruleta.reiniciar(t, fecha);
     await anotar(req, 'reiniciar_tiro', 'giro', t, fecha);
@@ -356,13 +456,25 @@ export const rutasAdmin: FastifyPluginAsync<{ sinLimites: boolean }> = async (ap
 
   app.get('/seguridad/pendientes', async () => ({ pendientes: await repos.seguridad.pendientes() }));
 
-  app.get<{ Params: { id: string } }>('/seguridad/dispositivos/:id/intentos', async (req) => repos.seguridad.intentos(req.params.id));
+  app.get<{ Params: { id: string } }>('/seguridad/dispositivos/:id/intentos', async (req) =>
+    repos.seguridad.intentos(req.params.id),
+  );
 
   app.post<{ Params: { id: string } }>('/seguridad/dispositivos/:id/bloqueo', async (req) => {
     const b = esquemaBloqueo.parse(req.body);
-    if (!(await repos.seguridad.bloquear(req.params.id, b.bloqueado, b.motivo))) throw new ErrorApi(404, 'no_encontrado', 'No encontré ese dispositivo.');
-    const lib = b.bloqueado && b.liberar ? await repos.seguridad.liberarDeDispositivo(req.params.id) : { liberados: 0, sorteos: [] };
-    await anotar(req, b.bloqueado ? 'bloquear_dispositivo' : 'desbloquear_dispositivo', 'dispositivo', req.params.id, b.motivo + (lib.liberados ? ` · liberó ${lib.liberados}` : ''));
+    if (!(await repos.seguridad.bloquear(req.params.id, b.bloqueado, b.motivo)))
+      throw new ErrorApi(404, 'no_encontrado', 'No encontré ese dispositivo.');
+    const lib =
+      b.bloqueado && b.liberar
+        ? await repos.seguridad.liberarDeDispositivo(req.params.id)
+        : { liberados: 0, sorteos: [] };
+    await anotar(
+      req,
+      b.bloqueado ? 'bloquear_dispositivo' : 'desbloquear_dispositivo',
+      'dispositivo',
+      req.params.id,
+      b.motivo + (lib.liberados ? ` · liberó ${lib.liberados}` : ''),
+    );
     return { bloqueado: b.bloqueado, liberados: lib.liberados };
   });
 

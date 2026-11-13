@@ -5,6 +5,7 @@ import {
   dinero,
   dosDigitos,
   enlaceWhatsApp,
+  formatearApertura,
   formatearFecha,
   formatearTelefono,
   mensajePedido,
@@ -81,7 +82,11 @@ export function PaginaSorteo() {
   useTemaNavegador('#F1F4EF');
   const { id = '' } = useParams();
   const { data: cfg } = useConfig();
-  const q = useQuery({ queryKey: ['sorteo', id], queryFn: () => api.sorteo(id), retry: (n, e) => !(e instanceof FalloApi && e.status === 404) && n < 1 });
+  const q = useQuery({
+    queryKey: ['sorteo', id],
+    queryFn: () => api.sorteo(id),
+    retry: (n, e) => !(e instanceof FalloApi && (e.status === 404 || e.status === 403)) && n < 1,
+  });
   const s = q.data;
   // Botones, bordes, etiquetas y fondo con los colores de este sorteo.
   useTemaSorteo(s ? temaDe(s) : null);
@@ -130,7 +135,10 @@ export function PaginaSorteo() {
     const perdidos = [...selRef.current].filter((n) => nuevo.has(n));
     if (!perdidos.length) return;
     setSel((sl) => new Set([...sl].filter((n) => !nuevo.has(n))));
-    setTomados((t) => ({ numeros: [...new Set([...(t?.numeros ?? []), ...perdidos])].sort((a, b) => a - b), alApartar: false }));
+    setTomados((t) => ({
+      numeros: [...new Set([...(t?.numeros ?? []), ...perdidos])].sort((a, b) => a - b),
+      alApartar: false,
+    }));
     vibrar(30);
   };
 
@@ -220,7 +228,8 @@ export function PaginaSorteo() {
   }, [tel, paso]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (paso === 'datos' && !normalizarTelefono(tel)) setTimeout(() => telRef.current?.focus({ preventScroll: true }), 250);
+    if (paso === 'datos' && !normalizarTelefono(tel))
+      setTimeout(() => telRef.current?.focus({ preventScroll: true }), 250);
     // Cada paso empieza arriba de la pantalla.
     window.scrollTo({ top: 0 });
   }, [paso]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -229,6 +238,28 @@ export function PaginaSorteo() {
     return (
       <Marco sinEncabezado>
         <p className="muted">Cargando sorteo…</p>
+      </Marco>
+    );
+  // Sorteo programado que todavía no abre: se dice cuándo.
+  if (q.error instanceof FalloApi && q.error.codigo === 'sin_abrir')
+    return (
+      <Marco sinEncabezado>
+        <Link className="back" to="/sorteos">
+          ← Todos los sorteos
+        </Link>
+        <div className="panel stack sin-abrir">
+          <span className="sa-reloj" aria-hidden="true">
+            ⏰
+          </span>
+          <h2>Este sorteo aún no abre</h2>
+          <p>
+            Abre el <b>{formatearApertura(String(q.error.detalle?.abre ?? ''))}</b>: vuelve a esa hora para apartar tus
+            números.
+          </p>
+          <Link className="btn btn-primary btn-block" to="/sorteos">
+            Ver los sorteos abiertos
+          </Link>
+        </div>
       </Marco>
     );
   if (q.isError && !(q.error instanceof FalloApi && q.error.status === 404))
@@ -257,9 +288,16 @@ export function PaginaSorteo() {
   const tapa = s.logo_ocupado || cfg?.diseno.tablero.logoOcupado || null;
   const nums = [...sel].sort((a, b) => a - b);
   const k = nums.length;
+  const max = s.max_por_celular;
+  const agotado = ocup.size >= 100;
+  const imagenAgotado = s.imagen_agotado || cfg?.diseno.tablero.agotado || null;
+  const total = (n: number) => (s.gratis ? 'Gratis' : dinero(n * s.valor_boleta));
+  const avisoMax = () =>
+    avisar(`En este sorteo cada persona puede apartar hasta ${max} ${max === 1 ? 'número' : 'números'}`);
 
   const tocar = (n: number) => {
     if (ocup.has(n)) return;
+    if (!sel.has(n) && max > 0 && sel.size >= max) return avisoMax();
     vibrar(8);
     setSel((x) => {
       const y = new Set(x);
@@ -270,6 +308,7 @@ export function PaginaSorteo() {
   };
 
   const alAzar = () => {
+    if (max > 0 && sel.size >= max) return avisoMax();
     const libres = Array.from({ length: 100 }, (_, n) => n).filter((n) => !ocup.has(n) && !sel.has(n));
     if (!libres.length) return avisar('Ya no quedan números libres');
     const n = libres[Math.floor(Math.random() * libres.length)];
@@ -286,6 +325,8 @@ export function PaginaSorteo() {
     if (!telefonoValido(t)) return setErr('Escribe tu celular de 10 dígitos. Debe empezar por 3.');
     if (nom.length < 2) return setErr('Escribe tu nombre para saber de quién son los números.');
     if (k < 1 || k > 30) return setErr('Elige entre 1 y 30 números.');
+    if (max > 0 && k > max)
+      return setErr(`En este sorteo cada persona puede apartar hasta ${max} ${max === 1 ? 'número' : 'números'}.`);
     setErr('');
     setPedido(null);
     setEnviando(true);
@@ -312,6 +353,8 @@ export function PaginaSorteo() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else if (e instanceof FalloApi && (e.codigo === 'limite_dispositivo' || e.codigo === 'dispositivo_bloqueado')) {
         setPedido({ mensaje: e.message, numeros: nums });
+      } else if (e instanceof FalloApi && e.codigo === 'sin_abrir') {
+        void q.refetch();
       } else setErr(e instanceof Error ? e.message : 'No se pudo apartar. Intenta de nuevo.');
     } finally {
       enviandoRef.current = false;
@@ -322,9 +365,7 @@ export function PaginaSorteo() {
   /** Aviso cuando otra persona apartó primero alguno de los números elegidos. */
   const avisoTomados = tomados && (
     <div className="aviso-tomados" role="alert">
-      <b>
-        {tomados.alApartar ? 'Llegaste unos segundos tarde' : 'Otra persona fue más rápida'}
-      </b>
+      <b>{tomados.alApartar ? 'Llegaste unos segundos tarde' : 'Otra persona fue más rápida'}</b>
       <p>
         {tomados.numeros.length === 1 ? 'El ' : 'Los '}
         <span className="num">{tomados.numeros.map(dosDigitos).join(', ')}</span>{' '}
@@ -337,7 +378,12 @@ export function PaginaSorteo() {
       </p>
       <div className="row-actions">
         {paso === 'datos' && k > 0 && (
-          <button type="button" className="btn btn-sm btn-primary" disabled={enviando} onClick={() => (setTomados(null), void apartar())}>
+          <button
+            type="button"
+            className="btn btn-sm btn-primary"
+            disabled={enviando}
+            onClick={() => (setTomados(null), void apartar())}
+          >
             Apartar solo {nums.map(dosDigitos).join(', ')}
           </button>
         )}
@@ -376,12 +422,16 @@ export function PaginaSorteo() {
             [
               ['elegir', 'Elige'],
               ['datos', 'Tus datos'],
-              ['listo', 'Paga'],
+              ['listo', s.gratis ? 'Listo' : 'Paga'],
             ] as const
           ).map(([p, t], i) => {
             const actual = ['elegir', 'datos', 'listo'].indexOf(paso);
             return (
-              <li key={p} className={i === actual ? 'actual' : i < actual ? 'hecho' : ''} aria-current={i === actual ? 'step' : undefined}>
+              <li
+                key={p}
+                className={i === actual ? 'actual' : i < actual ? 'hecho' : ''}
+                aria-current={i === actual ? 'step' : undefined}
+              >
                 {t}
               </li>
             );
@@ -392,84 +442,115 @@ export function PaginaSorteo() {
             {avisoTomados}
             <div className="adm-head">
               <div>
-                <h2>Elige tus números</h2>
-                <span className="vale-boleta">
-                  Cada número vale <b>{dinero(s.valor_boleta)}</b>
-                </span>
-              </div>
-              <button type="button" className="btn btn-sm btn-sun" onClick={alAzar}>
-                Al azar
-              </button>
-            </div>
-            <div className="legend">
-              <span>
-                <i />
-                Libre
-              </span>
-              <span>
-                <i className="l-sel" />
-                Elegido
-              </span>
-              <span className="l-tapa">
-                <i className="l-tak">
-                  <Tapa url={tapa} />
-                </i>
-                Ocupado
-              </span>
-              {(enVivo || revisando) && (
-                <span className="en-vivo" title="El tablero se actualiza solo cuando alguien aparta">
-                  <i aria-hidden="true" />
-                  En vivo
-                </span>
-              )}
-            </div>
-            <div className="board" role="group" aria-label="Tablero del 00 al 99">
-              {Array.from({ length: 100 }, (_, n) => {
-                const t = ocup.has(n);
-                const e = sel.has(n);
-                return (
-                  <button
-                    key={n}
-                    ref={(el) => void (celdas.current[n] = el)}
-                    type="button"
-                    className={`cell${t ? ' taken' : ''}${e ? ' sel' : ''}${recien.has(n) ? ' recien' : ''}${pop === n ? ' pop' : ''}`}
-                    disabled={t}
-                    aria-pressed={e}
-                    aria-label={`${dosDigitos(n)}${t ? ' ocupado' : e ? ' elegido' : ''}`}
-                    onClick={() => tocar(n)}
-                  >
-                    {t ? (
-                      <span className="tapa">
-                        <Tapa url={tapa} />
-                      </span>
-                    ) : (
-                      dosDigitos(n)
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            <Premios s={s} />
-            <div className="bar">
-              <div style={{ minWidth: 0 }}>
-                <b>{k ? `${k} ${k === 1 ? 'número' : 'números'} · ${dinero(k * s.valor_boleta)}` : 'Ningún número'}</b>
-                {k ? (
-                  <span className="bar-nums num">{nums.map(dosDigitos).join(' · ')}</span>
+                <h2>{agotado ? '¡Todos vendidos!' : 'Elige tus números'}</h2>
+                {s.gratis ? (
+                  <span className="vale-boleta vale-gratis">
+                    <b>¡Sorteo gratis!</b> No pagas nada
+                  </span>
                 ) : (
-                  <span className="muted">Toca los números que quieras</span>
+                  <span className="vale-boleta">
+                    Cada número vale <b>{dinero(s.valor_boleta)}</b>
+                  </span>
+                )}
+                {max > 0 && (
+                  <span className="vale-boleta">
+                    Máximo <b>{max}</b> {max === 1 ? 'número' : 'números'} por persona
+                  </span>
                 )}
               </div>
-              <button
-                className="btn btn-primary"
-                disabled={!k}
-                onClick={() => {
-                  setErr('');
-                  setPaso('datos');
-                }}
-              >
-                Continuar
-              </button>
+              {!agotado && (
+                <button type="button" className="btn btn-sm btn-sun" onClick={alAzar}>
+                  Al azar
+                </button>
+              )}
             </div>
+            {agotado ? (
+              <div className="agotado" role="status">
+                {imagenAgotado ? (
+                  <img src={imagenAgotado} alt="¡Todos los números fueron vendidos!" />
+                ) : (
+                  <div className="agotado-base">
+                    <SvgSimbolo k="moneda" />
+                    <b>¡Todos los números vendidos!</b>
+                    <span>Gracias por participar. Atento al grupo para el próximo sorteo.</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="legend">
+                  <span>
+                    <i />
+                    Libre
+                  </span>
+                  <span>
+                    <i className="l-sel" />
+                    Elegido
+                  </span>
+                  <span className="l-tapa">
+                    <i className="l-tak">
+                      <Tapa url={tapa} />
+                    </i>
+                    Ocupado
+                  </span>
+                  {(enVivo || revisando) && (
+                    <span className="en-vivo" title="El tablero se actualiza solo cuando alguien aparta">
+                      <i aria-hidden="true" />
+                      En vivo
+                    </span>
+                  )}
+                </div>
+                <div className="board" role="group" aria-label="Tablero del 00 al 99">
+                  {Array.from({ length: 100 }, (_, n) => {
+                    const t = ocup.has(n);
+                    const e = sel.has(n);
+                    return (
+                      <button
+                        key={n}
+                        ref={(el) => void (celdas.current[n] = el)}
+                        type="button"
+                        className={`cell${t ? ' taken' : ''}${e ? ' sel' : ''}${recien.has(n) ? ' recien' : ''}${pop === n ? ' pop' : ''}`}
+                        disabled={t}
+                        aria-pressed={e}
+                        aria-label={`${dosDigitos(n)}${t ? ' ocupado' : e ? ' elegido' : ''}`}
+                        onClick={() => tocar(n)}
+                      >
+                        {t ? (
+                          <span className="tapa">
+                            <Tapa url={tapa} />
+                          </span>
+                        ) : (
+                          dosDigitos(n)
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+            <Premios s={s} />
+            {!agotado && (
+              <div className="bar">
+                <div style={{ minWidth: 0 }}>
+                  <b>{k ? `${k} ${k === 1 ? 'número' : 'números'} · ${total(k)}` : 'Ningún número'}</b>
+                  {k ? (
+                    <span className="bar-nums num">{nums.map(dosDigitos).join(' · ')}</span>
+                  ) : (
+                    <span className="muted">Toca los números que quieras</span>
+                  )}
+                </div>
+                <button
+                  className="btn btn-primary"
+                  disabled={!k}
+                  onClick={() => {
+                    setErr('');
+                    setPaso('datos');
+                  }}
+                >
+                  Continuar
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -488,7 +569,7 @@ export function PaginaSorteo() {
               ))}
             </div>
             <p>
-              {k} {k === 1 ? 'número' : 'números'} · <b>{dinero(k * s.valor_boleta)}</b>
+              {k} {k === 1 ? 'número' : 'números'} · <b>{total(k)}</b>
             </p>
             <form
               className="stack"
@@ -573,7 +654,51 @@ export function PaginaSorteo() {
           </div>
         )}
 
-        {paso === 'listo' && hecho && (
+        {paso === 'listo' && hecho && s.gratis && (
+          <>
+            <article className="ticket ticket-gratis">
+              <div className="t-top">
+                <span className="tg-sello" aria-hidden="true">
+                  <SvgSimbolo k="trebol" />
+                </span>
+                <p className="eyebrow">Sorteo gratis</p>
+                <h2>¡Reserva exitosa!</h2>
+                <p className="muted">{hecho.nombre}, tus números ya están a tu nombre:</p>
+                <div className="chips">
+                  {hecho.numeros.map((n) => (
+                    <span key={n} className="chip">
+                      {dosDigitos(n)}
+                    </span>
+                  ))}
+                </div>
+                <dl className="t-rows">
+                  <dt>Sorteo</dt>
+                  <dd>{s.nombre}</dd>
+                  <dt>Juega</dt>
+                  <dd>
+                    {formatearFecha(s.fecha)}
+                    {s.hora ? ' · ' + s.hora : ''}
+                  </dd>
+                  <dt>Celular</dt>
+                  <dd className="num">{formatearTelefono(hecho.tel)}</dd>
+                </dl>
+              </div>
+              <div className="perf" aria-hidden="true" />
+              <div className="t-pay tg-gracias">
+                <b>¡Gracias por participar! 🍀</b>
+                <p>Sigue jugando con nosotros por grandes premios: el próximo ganador puedes ser tú.</p>
+              </div>
+            </article>
+            <Link className="btn btn-block" to="/mis-numeros">
+              Ver todos mis números
+            </Link>
+            <Link className="btn btn-primary btn-block" to="/sorteos">
+              Ver más sorteos
+            </Link>
+          </>
+        )}
+
+        {paso === 'listo' && hecho && !s.gratis && (
           <>
             <article className="ticket">
               <div className="t-top">
@@ -607,8 +732,8 @@ export function PaginaSorteo() {
                 {cobro ? (
                   <>
                     <p>
-                      Toca <b>Finalizar</b>: se abre el WhatsApp de quien recibe los pagos con tu ticket ya escrito. Por ese mismo chat envías el
-                      comprobante.
+                      Toca <b>Finalizar</b>: se abre el WhatsApp de quien recibe los pagos con tu ticket ya escrito. Por
+                      ese mismo chat envías el comprobante.
                     </p>
                     <BotonFinalizar
                       plantilla={cfg?.plantilla_ticket}
@@ -638,7 +763,9 @@ export function PaginaSorteo() {
                 ) : (
                   <p>El número de pago te lo damos por WhatsApp.</p>
                 )}
-                <p className="small muted">Tus números quedan a tu nombre. El pago se confirma cuando recibimos el comprobante.</p>
+                <p className="small muted">
+                  Tus números quedan a tu nombre. El pago se confirma cuando recibimos el comprobante.
+                </p>
               </div>
             </article>
             <Link className="btn btn-block" to="/mis-numeros">

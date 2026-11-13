@@ -6,7 +6,11 @@ import { api } from '../api/cliente.ts';
 import { useConfig } from './comunes.tsx';
 import { BotonFinalizar } from './Pago.tsx';
 
-const ESTADO = { pagado: ['pag', 'Pagado'], pendiente: ['pend', 'Pendiente'], parcial: ['parcial', 'Pago parcial'] } as const;
+const ESTADO = {
+  pagado: ['pag', 'Pagado'],
+  pendiente: ['pend', 'Pendiente'],
+  parcial: ['parcial', 'Pago parcial'],
+} as const;
 
 /** Resultados de "Mis números" para un celular válido (también se usa dentro del menú). */
 export function ResultadosMisNumeros({ tel }: { tel: string }) {
@@ -39,8 +43,9 @@ export function ResultadosMisNumeros({ tel }: { tel: string }) {
         </span>
       </div>
       {data.sorteos.map((s) => {
-        const pend = s.numeros.filter((n) => !s.pagados.includes(n));
-        const [cls, txt] = ESTADO[estadoPago(s.numeros, s.pagados)];
+        // Un sorteo gratis no tiene nada por pagar.
+        const pend = s.gratis ? [] : s.numeros.filter((n) => !s.pagados.includes(n));
+        const [cls, txt] = s.gratis ? ['pag', 'Gratis'] : ESTADO[estadoPago(s.numeros, s.pagados)];
         return (
           <article className="mn-card" key={s.id}>
             <div className="mn-head">
@@ -63,7 +68,7 @@ export function ResultadosMisNumeros({ tel }: { tel: string }) {
             </div>
             <dl className="t-rows">
               <dt>Total</dt>
-              <dd>{dinero(s.numeros.length * s.valor_boleta)}</dd>
+              <dd>{s.gratis ? 'Gratis' : dinero(s.numeros.length * s.valor_boleta)}</dd>
               {pend.length > 0 && (
                 <>
                   <dt>Por pagar</dt>
@@ -104,7 +109,10 @@ export function ResultadosMisNumeros({ tel }: { tel: string }) {
           </article>
         );
       })}
-      <p className="hint">Los números en verde ya están pagados. Si pagaste hace poco y aún sale pendiente, espera a que confirmemos tu pago.</p>
+      <p className="hint">
+        Los números en verde ya están pagados. Si pagaste hace poco y aún sale pendiente, espera a que confirmemos tu
+        pago.
+      </p>
     </>
   );
 }

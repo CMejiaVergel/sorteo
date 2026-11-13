@@ -1,5 +1,5 @@
 import type { Diseno } from './esquemas/index.ts';
-import type { Simbolo } from './simbolos.ts';
+import type { PremiosTres, Simbolo } from './simbolos.ts';
 
 /** Forma de error de la API (docs/05 §1). */
 export interface ErrorApi {
@@ -12,7 +12,7 @@ export interface ConfigPublica {
   diseno: Diseno;
   plantilla_ticket: string;
   /** Momento del último "reiniciar la ruleta de hoy para todos": los celulares olvidan su tiro guardado anterior. */
-  ruleta: { activo: boolean; premio_tres: string; premio_dos: string; reinicio: string };
+  ruleta: { activo: boolean; premio_tres: string; premio_dos: string; premios_tres: PremiosTres; reinicio: string };
 }
 
 export interface SorteoResumen {
@@ -29,6 +29,7 @@ export interface SorteoResumen {
   orden: number;
   imagen: string;
   libres: number;
+  gratis: boolean;
 }
 
 export interface Sorteo {
@@ -54,9 +55,23 @@ export interface Sorteo {
   logo_ocupado: string;
   fondo_imagen: string;
   creado: string;
+  /** Sorteo de regalo: la boleta vale 0 y el ticket no pide pago. */
+  gratis: boolean;
+  /** Números que puede apartar cada celular en este sorteo desde la página. 0 = sin límite. */
+  max_por_celular: number;
+  /** Apertura programada "AAAA-MM-DDTHH:MM" (hora de Bogotá). Antes de eso los clientes no lo ven. null = ya. */
+  abre: string | null;
+  /** Imagen que ven los clientes cuando se venden los 100 números (vacío = la general de Diseño). */
+  imagen_agotado: string;
+  /** Encabezado y final de la lista para WhatsApp, con variables (vacío = predeterminado). */
+  lista_encabezado: string;
+  lista_pie: string;
 }
 
-export interface SorteoPublico extends Omit<Sorteo, 'orden' | 'etiqueta' | 'activo' | 'fondo_imagen' | 'creado'> {
+export interface SorteoPublico extends Omit<
+  Sorteo,
+  'orden' | 'etiqueta' | 'activo' | 'fondo_imagen' | 'creado' | 'abre' | 'lista_encabezado' | 'lista_pie'
+> {
   ocupados: number[];
 }
 
@@ -86,6 +101,7 @@ export interface SorteoMisNumeros {
   nequi_titular: string;
   color: string;
   imagen: string;
+  gratis: boolean;
   numeros: number[];
   pagados: number[];
 }

@@ -51,6 +51,12 @@ const S = (
   logo_loteria: '',
   logo_ocupado: '',
   fondo_imagen: '',
+  gratis: false,
+  max_por_celular: 0,
+  abre: null,
+  imagen_agotado: '',
+  lista_encabezado: '',
+  lista_pie: '',
   ...extra,
 });
 
@@ -65,10 +71,18 @@ if (yaHay) {
   await repos.sorteos.guardar(S('Chontico Noche', 'noche', '7:00 p. m.', 5000, 'morado', 5));
   await repos.sorteos.guardar(S('Sinuano Noche', 'noche', '10:30 p. m.', 10000, 'verde', 6));
   await repos.sorteos.guardar(
-    S('VIP Valle', 'noche', '10:30 p. m.', 30000, 'rojo', 7, { etiqueta: 'Miércoles', fecha: proximo(3), loteria: 'Lotería del Valle' }),
+    S('VIP Valle', 'noche', '10:30 p. m.', 30000, 'rojo', 7, {
+      etiqueta: 'Miércoles',
+      fecha: proximo(3),
+      loteria: 'Lotería del Valle',
+    }),
   );
   await repos.sorteos.guardar(
-    S('VIP Boyacá', 'noche', '10:30 p. m.', 30000, 'rojo', 8, { etiqueta: 'Sábados', fecha: proximo(6), loteria: 'Lotería de Boyacá' }),
+    S('VIP Boyacá', 'noche', '10:30 p. m.', 30000, 'rojo', 8, {
+      etiqueta: 'Sábados',
+      fecha: proximo(6),
+      loteria: 'Lotería de Boyacá',
+    }),
   );
 
   const ana = { telefono: '3000000001', nombre: 'Ana (ejemplo)' };
@@ -100,6 +114,8 @@ if (usuario && clave.length >= LARGO_MINIMO_CLAVE) {
     console.log(`Administrador de desarrollo "${usuario}" creado (contraseña en .env).`);
   }
 } else {
-  console.log('Sin administrador de desarrollo: define SEMILLA_ADMIN_USUARIO y SEMILLA_ADMIN_CLAVE en .env, o usa "npm run admin -- crear <usuario>".');
+  console.log(
+    'Sin administrador de desarrollo: define SEMILLA_ADMIN_USUARIO y SEMILLA_ADMIN_CLAVE en .env, o usa "npm run admin -- crear <usuario>".',
+  );
 }
 db.close();

@@ -12,7 +12,9 @@ export const ADMIN_ORIGIN = 'http://admin.test';
 /** Segundo origen permitido del panel (como un túnel de prueba). */
 export const ADMIN_ORIGIN_2 = 'https://tunel.test';
 
-export async function montar(op: { ahora?: () => Date; azar?: () => number; sinLimites?: boolean; env?: Record<string, string> } = {}) {
+export async function montar(
+  op: { ahora?: () => Date; azar?: () => number; sinLimites?: boolean; env?: Record<string, string> } = {},
+) {
   const config = cargarConfig({
     ...op.env,
     NODE_ENV: 'test',
@@ -24,7 +26,14 @@ export async function montar(op: { ahora?: () => Date; azar?: () => number; sinL
   });
   const db = abrirDb(':memory:');
   const repos = reposSqlite(db);
-  const app = await crearApp({ config, repos, registros: false, sinLimites: op.sinLimites ?? true, ahora: op.ahora, azar: op.azar });
+  const app = await crearApp({
+    config,
+    repos,
+    registros: false,
+    sinLimites: op.sinLimites ?? true,
+    ahora: op.ahora,
+    azar: op.azar,
+  });
   return { app, repos, db, config };
 }
 
@@ -49,16 +58,35 @@ export const sorteoBase = (extra: Partial<SorteoEntrada> = {}): SorteoEntrada =>
   logo_loteria: '',
   logo_ocupado: '',
   fondo_imagen: '',
+  gratis: false,
+  max_por_celular: 0,
+  abre: null,
+  imagen_agotado: '',
+  lista_encabezado: '',
+  lista_pie: '',
   ...extra,
 });
 
-export async function crearAdmin(repos: ReturnType<typeof reposSqlite>, usuario = 'miguel', clave = 'clave-de-prueba-123') {
+export async function crearAdmin(
+  repos: ReturnType<typeof reposSqlite>,
+  usuario = 'miguel',
+  clave = 'clave-de-prueba-123',
+) {
   return repos.admins.crear(usuario, await cifrarClave(clave));
 }
 
 /** Inicia sesión y devuelve la cabecera Cookie lista para usar. */
-export async function entrar(app: Awaited<ReturnType<typeof montar>>['app'], usuario = 'miguel', clave = 'clave-de-prueba-123') {
-  const r = await app.inject({ method: 'POST', url: '/api/admin/auth/login', headers: { origin: ADMIN_ORIGIN }, payload: { usuario, clave } });
+export async function entrar(
+  app: Awaited<ReturnType<typeof montar>>['app'],
+  usuario = 'miguel',
+  clave = 'clave-de-prueba-123',
+) {
+  const r = await app.inject({
+    method: 'POST',
+    url: '/api/admin/auth/login',
+    headers: { origin: ADMIN_ORIGIN },
+    payload: { usuario, clave },
+  });
   const c = r.cookies[0];
   return { respuesta: r, cookie: c ? `${c.name}=${c.value}` : '' };
 }

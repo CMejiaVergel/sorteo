@@ -206,3 +206,70 @@ details > summary {
 .row-limite{display:flex;gap:10px;align-items:flex-end}
 .row-limite .field{flex:1;min-width:0}
 .row.disp .state{vertical-align:2px;white-space:nowrap}
+
+/* Lista para el grupo de WhatsApp */
+.lista-grupo {
+  min-height: 260px;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre;
+  overflow-x: auto;
+}
+.btn-quitar-x {
+  color: #c62828;
+  border-color: #f2b8b5;
+  background: #fff5f5;
+}
+.chips-variables {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip-var {
+  border: 1px dashed var(--line);
+  background: var(--paper);
+  border-radius: 8px;
+  padding: 6px 9px;
+  font: 600 12px/1 ui-monospace, Menlo, Consolas, monospace;
+  cursor: pointer;
+  color: var(--ink);
+}
+.chip-var:hover {
+  border-style: solid;
+}
+
+/* Premios de la ruleta por símbolo */
+.trios {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.trio label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.trio-ico {
+  display: inline-flex;
+  gap: 1px;
+}
+.trio-ico svg {
+  width: 20px;
+  height: 20px;
+}
+.c-reglas-ico {
+  width: 18px;
+  height: 18px;
+  vertical-align: -4px;
+}
+
+/* Nuevo día del sorteo */
+.reiniciar {
+  border-color: #f2c94c;
+}
+.reiniciar label input[type='checkbox'] {
+  width: auto;
+  min-height: 0;
+  vertical-align: -2px;
+}

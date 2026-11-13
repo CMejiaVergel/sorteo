@@ -1,7 +1,9 @@
 import {
   decidirGiro,
   dosDigitos,
+  formatearApertura,
   hoyBogota,
+  sorteoAbierto,
   leerTexto,
   normalizarTelefono,
   sumarDias,
@@ -10,7 +12,7 @@ import {
   type MisNumeros,
 } from '@pato/shared';
 import { ErrorApi, noDisponible } from '../errores.ts';
-import { LimiteDispositivo, NumerosOcupados, YaGiro, type Repos } from '../repositorios/tipos.ts';
+import { LimiteCelular, LimiteDispositivo, NumerosOcupados, YaGiro, type Repos } from '../repositorios/tipos.ts';
 
 export interface Contexto {
   repos: Repos;
@@ -20,7 +22,8 @@ export interface Contexto {
   zona: string;
 }
 
-const telInvalido = () => new ErrorApi(422, 'telefono_invalido', 'Escribe tu celular de 10 dígitos. Debe empezar por 3.');
+const telInvalido = () =>
+  new ErrorApi(422, 'telefono_invalido', 'Escribe tu celular de 10 dígitos. Debe empezar por 3.');
 
 /** Desde dónde se aparta: cookie del navegador, red y navegador. */
 export interface OrigenReserva {
@@ -47,12 +50,20 @@ export async function reservar(
 ) {
   const s = await ctx.repos.sorteos.obtener(sorteoId);
   if (!s || !s.activo) throw noDisponible();
+  if (!sorteoAbierto(s, ctx.ahora(), ctx.zona)) throw sinAbrir(s.abre);
   const telefono = normalizarTelefono(entrada.telefono);
   if (!telefonoValido(telefono)) throw telInvalido();
-  const nombre = String(entrada.nombre ?? '').trim().replace(/\s+/g, ' ').slice(0, 60);
-  if (nombre.length < 2) throw new ErrorApi(422, 'nombre_invalido', 'Escribe tu nombre para saber de quién son los números.');
+  const nombre = String(entrada.nombre ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, 60);
+  if (nombre.length < 2)
+    throw new ErrorApi(422, 'nombre_invalido', 'Escribe tu nombre para saber de quién son los números.');
   const numeros = [...new Set(entrada.numeros)];
-  if (numeros.length < 1 || numeros.length > 30) throw new ErrorApi(422, 'cantidad_invalida', 'Elige entre 1 y 30 números.');
+  if (numeros.length < 1 || numeros.length > 30)
+    throw new ErrorApi(422, 'cantidad_invalida', 'Elige entre 1 y 30 números.');
+  const maxCelular = s.max_por_celular;
+  if (maxCelular > 0 && numeros.length > maxCelular) throw limiteCelular(maxCelular, 0);
   if (numeros.some((n) => !Number.isInteger(n) || n < 0 || n > 99))
     throw new ErrorApi(422, 'numero_fuera_de_rango', 'Los números van del 00 al 99.');
   numeros.sort((a, b) => a - b);
@@ -60,7 +71,17 @@ export async function reservar(
   const seg = ctx.repos.seguridad;
   const quien = `${nombre} (${telefono})`;
   const intento = (resultado: string) =>
-    origen ? seg.registrarIntento({ dispositivo_id: origen.dispositivo, ip: origen.ip, sorteo_id: s.id, telefono, nombre, numeros, resultado }) : null;
+    origen
+      ? seg.registrarIntento({
+          dispositivo_id: origen.dispositivo,
+          ip: origen.ip,
+          sorteo_id: s.id,
+          telefono,
+          nombre,
+          numeros,
+          resultado,
+        })
+      : null;
 
   let max = 0;
   if (origen) {
@@ -93,9 +114,15 @@ export async function reservar(
       numeros,
       { telefono, nombre: nombreFinal },
       'cliente',
-      origen ? { dispositivo: origen.dispositivo, ip: origen.ip, max } : undefined,
+      origen || maxCelular
+        ? { dispositivo: origen?.dispositivo ?? '', ip: origen?.ip ?? '', max, maxCelular }
+        : undefined,
     );
   } catch (e) {
+    if (e instanceof LimiteCelular) {
+      await intento('limite_celular');
+      throw limiteCelular(maxCelular, e.tiene);
+    }
     if (e instanceof NumerosOcupados) {
       await intento('ocupados');
       const o = e.ocupados;
@@ -121,7 +148,9 @@ export async function reservar(
         'limite_dispositivo',
         `Por seguridad, desde un mismo celular se pueden apartar hasta ${max} números por sorteo` +
           (e.tiene ? ` y ya tienes ${e.tiene}.` : '.') +
-          (quedan && e.tiene ? ` Aquí puedes apartar ${quedan} más; los demás pídelos por WhatsApp y te los separamos.` : ' Pídelos por WhatsApp y te los separamos.'),
+          (quedan && e.tiene
+            ? ` Aquí puedes apartar ${quedan} más; los demás pídelos por WhatsApp y te los separamos.`
+            : ' Pídelos por WhatsApp y te los separamos.'),
         { limite: max, tiene: e.tiene, quedan, numeros },
       );
     }
@@ -152,8 +181,29 @@ export async function reservar(
         });
     }
   }
-  return { nombre: nombreFinal, numeros, total: numeros.length * s.valor_boleta };
+  return { nombre: nombreFinal, numeros, total: numeros.length * s.valor_boleta, gratis: s.gratis };
 }
+
+/** El sorteo tiene apertura programada y todavía no llega la hora. */
+export const sinAbrir = (abre: string | null) =>
+  new ErrorApi(
+    403,
+    'sin_abrir',
+    `Este sorteo todavía no abre. Vuelve el ${formatearApertura(abre)} para apartar tus números.`,
+    { abre },
+  );
+
+const limiteCelular = (max: number, tiene: number) => {
+  const quedan = Math.max(0, max - tiene);
+  return new ErrorApi(
+    409,
+    'limite_celular',
+    `En este sorteo cada persona puede apartar hasta ${max} ${max === 1 ? 'número' : 'números'}` +
+      (tiene ? ` y ya tienes ${tiene}.` : '.') +
+      (tiene && quedan ? ` Puedes apartar ${quedan} más.` : tiene ? '' : ' Quita algunos e intenta de nuevo.'),
+    { limite: max, tiene, quedan },
+  );
+};
 
 /** Consulta de "Mis números": activos o de los últimos 7 días. */
 export async function misNumeros(ctx: Contexto, tel: string): Promise<MisNumeros> {
@@ -219,7 +269,9 @@ export async function agregarFijos(ctx: Contexto, sorteoId: string, texto: strin
       agregadas++;
     } catch (e) {
       if (e instanceof NumerosOcupados)
-        errores.push(`“${l.linea}”: ${e.ocupados.map(dosDigitos).join(', ')} ya ${e.ocupados.length === 1 ? 'está ocupado' : 'están ocupados'}.`);
+        errores.push(
+          `“${l.linea}”: ${e.ocupados.map(dosDigitos).join(', ')} ya ${e.ocupados.length === 1 ? 'está ocupado' : 'están ocupados'}.`,
+        );
       else throw e;
     }
   }
@@ -250,7 +302,8 @@ export async function copiarFijos(ctx: Contexto, destinoId: string, origenId: st
       libres.forEach((n) => ocupados.add(n));
       copiadas++;
     } catch (e) {
-      if (e instanceof NumerosOcupados) saltados.push(`${g.nombre}: ${e.ocupados.map(dosDigitos).join(', ')} ya estaban ocupados.`);
+      if (e instanceof NumerosOcupados)
+        saltados.push(`${g.nombre}: ${e.ocupados.map(dosDigitos).join(', ')} ya estaban ocupados.`);
       else throw e;
     }
   }

@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
-import { formatearTelefono, normalizarTelefono, SIMBOLOS, telefonoValido, textoCelular, type Diseno, type Simbolo } from '@pato/shared';
+import {
+  formatearTelefono,
+  normalizarTelefono,
+  SIMBOLOS,
+  telefonoValido,
+  textoCelular,
+  premioTrio,
+  type Diseno,
+  type PremiosTres,
+  type Simbolo,
+} from '@pato/shared';
 import { SvgSimbolo } from './Sprite.tsx';
 import { vibrar } from './comunes.tsx';
 
@@ -15,7 +25,7 @@ export type RespuestaLanzar = ({ ok: true } & FinalGiro) | { ok: false; mensaje:
 
 interface Props {
   diseno: Diseno;
-  premios: { premio_tres: string; premio_dos: string };
+  premios: { premio_tres: string; premio_dos: string; premios_tres?: PremiosTres };
   /** Barra de arriba (enlace "Saltar →" o la etiqueta de modo prueba). */
   barraSuperior: ReactNode;
   /** false en modo prueba: no se pide celular. */
@@ -55,16 +65,40 @@ interface Columna {
 function Cristal({ color }: { color: string }) {
   return (
     <svg viewBox="0 0 80 90" aria-hidden="true">
-      <path d="M8 90 18 42 30 70 40 6 52 66 62 30 74 90Z" fill={color} stroke="rgb(0 0 0 / .25)" strokeWidth="2" strokeLinejoin="round" />
-      <path d="M40 6 36 70M18 42 22 80M62 30 58 80" stroke="#FFFFFF" strokeWidth="3" opacity=".45" strokeLinecap="round" />
+      <path
+        d="M8 90 18 42 30 70 40 6 52 66 62 30 74 90Z"
+        fill={color}
+        stroke="rgb(0 0 0 / .25)"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M40 6 36 70M18 42 22 80M62 30 58 80"
+        stroke="#FFFFFF"
+        strokeWidth="3"
+        opacity=".45"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
 
 /** Ruleta tragamonedas: proforma base (castillo) o máquina personalizada con ventana. */
-export function Ruleta({ diseno, premios, barraSuperior, pedirCelular, celularInicial = '', lanzar, resultado, giroEntrada = false, mostrarReglas = false }: Props) {
+export function Ruleta({
+  diseno,
+  premios,
+  barraSuperior,
+  pedirCelular,
+  celularInicial = '',
+  lanzar,
+  resultado,
+  giroEntrada = false,
+  mostrarReglas = false,
+}: Props) {
   const d = diseno.ruleta;
-  const [cols, setCols] = useState<Columna[]>(() => [0, 1, 2].map(() => ({ items: [azar(), azar(), azar()], y: 0, dur: 0 })));
+  const [cols, setCols] = useState<Columna[]>(() =>
+    [0, 1, 2].map(() => ({ items: [azar(), azar(), azar()], y: 0, dur: 0 })),
+  );
   const [gana, setGana] = useState<boolean[]>([false, false, false]);
   const [titulo, setTitulo] = useState({ texto: 'Tiro gratis del día', n: 0 });
   const [tel, setTel] = useState(formatearTelefono(celularInicial));
@@ -82,7 +116,13 @@ export function Ruleta({ diseno, premios, barraSuperior, pedirCelular, celularIn
       return;
     }
     const altos = [0, 1, 2].map((c) => (colRefs.current[c]?.offsetHeight ?? 300) / 3);
-    const tiras = cols.map((col, c) => [...col.items, ...Array.from({ length: 16 + c * 5 }, azar), azar(), fila[c], azar()]);
+    const tiras = cols.map((col, c) => [
+      ...col.items,
+      ...Array.from({ length: 16 + c * 5 }, azar),
+      azar(),
+      fila[c],
+      azar(),
+    ]);
     setCols(tiras.map((items) => ({ items, y: 0, dur: 0 })));
     await cuadro();
     setCols(tiras.map((items, c) => ({ items, y: -(items.length - 3) * altos[c], dur: 1.3 + c * 0.45 })));
@@ -239,7 +279,12 @@ export function Ruleta({ diseno, premios, barraSuperior, pedirCelular, celularIn
             <div className="maquina">
               <div className="maquina-caja">
                 <img src={d.maquina} alt="" />
-                {rodillos(`ventana${d.rodillosBlancos ? ' blancos' : ''}`, { left: `${v.x}%`, top: `${v.y}%`, width: `${v.w}%`, height: `${v.h}%` })}
+                {rodillos(`ventana${d.rodillosBlancos ? ' blancos' : ''}`, {
+                  left: `${v.x}%`,
+                  top: `${v.y}%`,
+                  width: `${v.w}%`,
+                  height: `${v.h}%`,
+                })}
               </div>
             </div>
             <div className="c-ranura suelta">{campoTel}</div>
@@ -267,7 +312,12 @@ export function Ruleta({ diseno, premios, barraSuperior, pedirCelular, celularIn
             </div>
           </>
         )}
-        <button className={`lanza ${d.botonImagen ? 'lanza-img' : ''}`} type="submit" aria-label="Lanza" disabled={ocupado}>
+        <button
+          className={`lanza ${d.botonImagen ? 'lanza-img' : ''}`}
+          type="submit"
+          aria-label="Lanza"
+          disabled={ocupado}
+        >
           {d.botonImagen ? (
             <img src={d.botonImagen} alt="" />
           ) : (
@@ -279,7 +329,15 @@ export function Ruleta({ diseno, premios, barraSuperior, pedirCelular, celularIn
       </form>
       {mostrarReglas && (
         <p className="c-reglas">
-          3 iguales en la línea del medio: <b>{premios.premio_tres}</b> · 2 iguales: <b>{premios.premio_dos}</b>
+          3 en línea:{' '}
+          {SIMBOLOS.map((k, i) => (
+            <span key={k}>
+              {i > 0 && ' · '}
+              <SvgSimbolo k={k} className="c-reglas-ico" /> <b>{premioTrio(premios, k)}</b>
+            </span>
+          ))}
+          <br />
+          Un par igual: <b>{premios.premio_dos}</b>
         </p>
       )}
       {final && <div className="c-res">{resultado(final, reiniciar)}</div>}

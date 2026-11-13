@@ -1,4 +1,5 @@
-import { dosDigitos, formatearFecha } from './fechas.ts';
+import { dinero } from './dinero.ts';
+import { dosDigitos, fechaLarga, formatearFecha, nombreDia } from './fechas.ts';
 
 export interface ReservaBasica {
   numero: number;
@@ -62,6 +63,105 @@ export function listaFinal(
   const libres = Array.from({ length: 100 }, (_, n) => n).filter((n) => !ocupados.has(n));
   if (incluirLibres && libres.length) t += `\n\nLibres: ${libres.map(dosDigitos).join('-')}`;
   return t;
+}
+
+export const PAGADO = '✅';
+export const NO_PAGADO = '❌';
+
+/** Encabezado predeterminado de la lista para el grupo. */
+export const ENCABEZADO_LISTA = 'LISTADO DE PARTICIPANTES PARA {SORTEO} ({FECHA})';
+
+/** Variables del encabezado y el final. En MAYÚSCULAS ponen el mismo dato en mayúsculas ({SORTEO}, {FECHA}…). */
+export const VARIABLES_LISTA = [
+  'sorteo',
+  'loteria',
+  'fecha',
+  'dia',
+  'hora',
+  'jornada',
+  'valor',
+  'premio',
+  'ocupados',
+  'libres',
+  'personas',
+];
+
+export interface SorteoLista {
+  nombre: string;
+  loteria?: string;
+  jornada?: string;
+  fecha: string | null;
+  hora: string;
+  valor_boleta?: number;
+  premio_total?: number;
+  gratis?: boolean;
+  lista_encabezado?: string;
+  lista_pie?: string;
+}
+
+/** Sustituye {variable} y {VARIABLE} (en mayúsculas). Una variable desconocida se deja intacta. */
+function rellenar(plantilla: string, v: Record<string, string>): string {
+  return plantilla.replace(/\{(\w+)\}/g, (x, k: string) => {
+    if (k in v) return v[k];
+    const min = k.toLowerCase();
+    return k === k.toUpperCase() && min in v ? v[min].toUpperCase() : x;
+  });
+}
+
+export function variablesLista(s: SorteoLista, reservas: ReservaBasica[]): Record<string, string> {
+  const ocupados = new Set(reservas.map((r) => r.numero)).size;
+  return {
+    sorteo: s.nombre,
+    loteria: s.loteria ?? '',
+    fecha: fechaLarga(s.fecha),
+    dia: nombreDia(s.fecha),
+    hora: s.hora,
+    jornada: s.jornada === 'noche' ? 'noche' : 'día',
+    valor: s.gratis ? 'gratis' : dinero(s.valor_boleta ?? 0),
+    premio: dinero(s.premio_total ?? 0),
+    ocupados: String(ocupados),
+    libres: String(100 - ocupados),
+    personas: String(new Set(reservas.map((r) => r.telefono)).size),
+  };
+}
+
+/**
+ * Lista final para pegar en el grupo de WhatsApp: encabezado, fijos, demás participantes y final.
+ * Una línea por persona ("01-02-03- Nombre"); lo pagado lleva ✅. En un pago parcial va primero la línea
+ * con lo pagado y justo debajo la de lo pendiente. ❌ en lo pendiente solo si se pide (`marcarNoPagados`):
+ * a algunos les molesta, así que lo decide el administrador. En un sorteo gratis no se marca nada.
+ */
+export function listaWhatsApp(
+  s: SorteoLista,
+  reservas: ReservaBasica[],
+  op: { marcarNoPagados?: boolean; incluirLibres?: boolean } = {},
+): string {
+  const v = variablesLista(s, reservas);
+  const linea = (nums: number[], nombre: string, marca = '') =>
+    `${nums.map(dosDigitos).join('-')}- ${nombre}${marca ? ' ' + marca : ''}`;
+  const lineas = (g: Persona): string[] => {
+    if (s.gratis) return [linea(g.numeros, g.nombre)];
+    const pend = g.numeros.filter((n) => !g.pagados.includes(n));
+    const x = op.marcarNoPagados ? NO_PAGADO : '';
+    if (!pend.length) return [linea(g.numeros, g.nombre, PAGADO)];
+    if (!g.pagados.length) return [linea(pend, g.nombre, x)];
+    return [linea(g.pagados, g.nombre, PAGADO), linea(pend, g.nombre, x)];
+  };
+  const grupos = agruparPorPersona(reservas);
+  const fijos = grupos.filter((g) => g.fijo);
+  const otros = grupos.filter((g) => !g.fijo);
+
+  const bloques: string[] = [rellenar(s.lista_encabezado?.trim() || ENCABEZADO_LISTA, v)];
+  if (fijos.length) bloques.push(['FIJOS', '', ...fijos.flatMap(lineas)].join('\n'));
+  if (otros.length) bloques.push((fijos.length ? ['PARTICIPANTES', ''] : []).concat(otros.flatMap(lineas)).join('\n'));
+  if (!grupos.length) bloques.push('Aún no hay números apartados.');
+  if (op.incluirLibres) {
+    const ocupados = new Set(reservas.map((r) => r.numero));
+    const libres = Array.from({ length: 100 }, (_, n) => n).filter((n) => !ocupados.has(n));
+    if (libres.length) bloques.push(`LIBRES: ${libres.map(dosDigitos).join('-')}`);
+  }
+  if (s.lista_pie?.trim()) bloques.push(rellenar(s.lista_pie.trim(), v));
+  return bloques.join('\n\n');
 }
 
 /** Nombres que se repiten con celulares distintos (en minúscula). */

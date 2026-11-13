@@ -88,3 +88,15 @@
 - Datos iniciales: copia de la base local (sorteos de muestra y reservas ficticias incluidos) y sus imágenes; sesiones borradas.
 - 2026-11-13: DNS en Hostinger (A `@` y A del panel → 158.220.113.5, `www` CNAME) y certificados individuales emitidos con certbot `--nginx` (redirección a HTTPS, renovación automática con `certbot.timer`).
 - Pendiente: cambiar la clave del administrador `miguel` (es la de desarrollo); sin `default_server 444` porque el nginx es compartido con otros sitios.
+
+### 2026-11-13 — Sorteo diario: gratis, máximo por persona, apertura programada, reinicio, premios por símbolo y lista para WhatsApp
+- **Migración 5** (reconstruye `sorteos` con las claves foráneas apagadas; el ejecutor de migraciones admite `{ sql, sinClaves }` y revisa `foreign_key_check`): `valor_boleta >= 0` solo si `gratis = 1`; columnas `gratis`, `max_por_celular` (0 = sin límite), `abre` (AAAA-MM-DDTHH:MM, hora de Bogotá), `imagen_agotado`, `lista_encabezado`, `lista_pie`. Tabla `cierres` (copia JSON de las reservas al reiniciar). `config_ruleta.premios_tres` (JSON por símbolo).
+- **Todos vendidos**: con los 100 ocupados, el tablero público muestra la imagen del sorteo o la general (Diseño → “Todos los números vendidos”); sin imagen, un aviso con la moneda.
+- **Reiniciar para un nuevo día** (Gestión → “Nuevo día del sorteo”, `POST /api/admin/sorteos/:id/reiniciar`): guarda el día en `cierres`, libera lo de los clientes, conserva los fijos (quedan por pagar) si se marca, limpia liberados y pone fecha y apertura nuevas. Repite la hora de apertura del día anterior.
+- **Máximo por persona** (editor del sorteo): se revisa por celular dentro de la transacción de reserva (`LimiteCelular`, error `limite_celular`); el tablero no deja elegir más. El panel puede apartar sin límite. El límite por dispositivo de Seguridad sigue aparte.
+- **Sorteo gratis**: valor 0, “¡GRATIS!” en el menú, ticket “¡Reserva exitosa!” con agradecimiento y sin datos de pago; Mis números no muestra deuda; la lista no lleva marcas.
+- **Premios de la ruleta**: par igual + premio por trío de cada símbolo (vacío = el general de 3 en línea). La probabilidad de trío no cambia y los 5 símbolos salen por igual.
+- **Apertura programada**: antes de `abre` el sorteo no aparece en `/sorteos`, el enlace directo responde `403 sin_abrir` con la hora (la página dice cuándo abre) y no se puede apartar.
+- **Lista para el grupo** (`listaWhatsApp` en shared): encabezado (predeterminado `LISTADO DE PARTICIPANTES PARA {SORTEO} ({FECHA})`), FIJOS y PARTICIPANTES, `números- Nombre`, ✅ en lo pagado, parcial en dos líneas (pagado arriba, pendiente abajo), ❌ opcional con “Marcar no pagados”, libres opcionales y final propio. Variables: sorteo, loteria, fecha, dia, hora, jornada, valor, premio, ocupados, libres, personas (en MAYÚSCULAS = dato en mayúsculas).
+- **Intro**: sin la franja blanca de abajo (era el piso de nubes de la ruleta); el cielo llena la pantalla.
+- Pruebas: `apps/api/test/sorteo-diario.test.ts` y `packages/shared/test/sorteo-diario.test.ts`. Total 119.

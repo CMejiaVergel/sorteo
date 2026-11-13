@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { disenoBase, esquemaDiseno } from '@pato/shared/esquemas';
 import {
   PLANTILLA_BASE,
+  SIMBOLOS,
+  type PremiosTres,
   type AlertaSeguridad,
   type Contacto,
   type DispositivoResumen,
@@ -16,13 +18,24 @@ import {
 } from '@pato/shared';
 import { esUnicidad, transaccion, type Db } from '../db/conexion.ts';
 import { describirAgente } from '../servicios/agente.ts';
-import { CelularDeOtro, LimiteDispositivo, NumerosOcupados, UsuarioRepetido, YaGiro, type Admin, type Repos } from './tipos.ts';
+import {
+  CelularDeOtro,
+  LimiteCelular,
+  LimiteDispositivo,
+  NumerosOcupados,
+  UsuarioRepetido,
+  YaGiro,
+  type Admin,
+  type Repos,
+} from './tipos.ts';
 
 type Fila = Record<string, unknown>;
 const ahoraIso = () => new Date().toISOString();
 /** Condición opcional "AND numero IN (...)" con parámetros. */
 const filtroNumeros = (numeros?: number[]) =>
-  numeros ? { sql: ` AND numero IN (${numeros.map(() => '?').join(',') || 'NULL'})`, args: numeros } : { sql: '', args: [] as number[] };
+  numeros
+    ? { sql: ` AND numero IN (${numeros.map(() => '?').join(',') || 'NULL'})`, args: numeros }
+    : { sql: '', args: [] as number[] };
 
 const aSorteo = (f: Fila): Sorteo => ({
   id: String(f.id),
@@ -47,6 +60,12 @@ const aSorteo = (f: Fila): Sorteo => ({
   logo_ocupado: String(f.logo_ocupado),
   fondo_imagen: String(f.fondo_imagen),
   creado: String(f.creado),
+  gratis: Number(f.gratis) === 1,
+  max_por_celular: Number(f.max_por_celular ?? 0),
+  abre: (f.abre as string | null) ?? null,
+  imagen_agotado: String(f.imagen_agotado ?? ''),
+  lista_encabezado: String(f.lista_encabezado ?? ''),
+  lista_pie: String(f.lista_pie ?? ''),
 });
 
 const aReserva = (f: Fila): Reserva => ({
@@ -81,11 +100,53 @@ const aAdmin = (f: Fila): Admin => ({
   ultimo_ingreso: (f.ultimo_ingreso as string | null) ?? null,
 });
 
+/** Premios por trío de cada símbolo: solo los símbolos conocidos y con texto. */
+function premiosDe(v: unknown): PremiosTres {
+  let o: unknown = v;
+  if (typeof v === 'string') {
+    try {
+      o = JSON.parse(v || '{}');
+    } catch {
+      o = {};
+    }
+  }
+  const r: PremiosTres = {};
+  if (o && typeof o === 'object')
+    for (const k of SIMBOLOS) {
+      const t = (o as Record<string, unknown>)[k];
+      if (typeof t === 'string' && t.trim()) r[k] = t.trim().slice(0, 80);
+    }
+  return r;
+}
+
 const ORDEN = 'ORDER BY s.orden, s.fecha, s.creado';
 const CAMPOS_SORTEO = [
-  'nombre', 'loteria', 'jornada', 'fecha', 'hora', 'orden', 'color', 'etiqueta', 'activo', 'valor_boleta',
-  'premio_total', 'premio_ultimas', 'premio_primeras', 'premio_medio', 'nequi', 'nequi_titular',
-  'imagen', 'logo_loteria', 'logo_ocupado', 'fondo_imagen',
+  'nombre',
+  'loteria',
+  'jornada',
+  'fecha',
+  'hora',
+  'orden',
+  'color',
+  'etiqueta',
+  'activo',
+  'valor_boleta',
+  'premio_total',
+  'premio_ultimas',
+  'premio_primeras',
+  'premio_medio',
+  'nequi',
+  'nequi_titular',
+  'imagen',
+  'logo_loteria',
+  'logo_ocupado',
+  'fondo_imagen',
+  'gratis',
+  'max_por_celular',
+  'abre',
+  'imagen_agotado',
+  'lista_encabezado',
+  'lista_pie',
 ] as const;
 
 /** Implementación de los repositorios sobre SQLite (node:sqlite). */
@@ -99,12 +160,24 @@ export function reposSqlite(db: Db): Repos {
           `SELECT s.*, 100 - (SELECT count(*) FROM reservas r WHERE r.sorteo_id = s.id) AS libres
            FROM sorteos s WHERE s.activo = 1 ${ORDEN}`,
         ).all() as Fila[];
-        return filas.map((f): SorteoResumen => {
+        return filas.map((f): SorteoResumen & { abre: string | null } => {
           const s = aSorteo(f);
           return {
-            id: s.id, nombre: s.nombre, loteria: s.loteria, jornada: s.jornada, fecha: s.fecha, hora: s.hora,
-            valor_boleta: s.valor_boleta, premio_total: s.premio_total, color: s.color, etiqueta: s.etiqueta,
-            orden: s.orden, imagen: s.imagen, libres: Number(f.libres),
+            id: s.id,
+            nombre: s.nombre,
+            loteria: s.loteria,
+            jornada: s.jornada,
+            fecha: s.fecha,
+            hora: s.hora,
+            valor_boleta: s.valor_boleta,
+            premio_total: s.premio_total,
+            color: s.color,
+            etiqueta: s.etiqueta,
+            orden: s.orden,
+            imagen: s.imagen,
+            libres: Number(f.libres),
+            gratis: s.gratis,
+            abre: s.abre,
           };
         });
       },
@@ -137,8 +210,40 @@ export function reposSqlite(db: Db): Repos {
         return Number(q('DELETE FROM sorteos WHERE id = ?').run(id).changes) > 0;
       },
       async imagenesEnUso() {
-        const filas = q('SELECT imagen, logo_loteria, logo_ocupado, fondo_imagen FROM sorteos').all() as Fila[];
+        const filas = q(
+          'SELECT imagen, logo_loteria, logo_ocupado, fondo_imagen, imagen_agotado FROM sorteos',
+        ).all() as Fila[];
         return filas.flatMap((f) => Object.values(f).map(String)).filter(Boolean);
+      },
+      async reiniciar(id, r) {
+        const s = await this.obtener(id);
+        if (!s) return null;
+        let archivadas = 0;
+        let conservados = 0;
+        transaccion(db, () => {
+          // Copia completa del día que termina, por si hay que consultarlo después.
+          const filas = (q('SELECT * FROM reservas WHERE sorteo_id = ? ORDER BY numero').all(id) as Fila[]).map(
+            aReserva,
+          );
+          archivadas = filas.length;
+          if (filas.length)
+            q('INSERT INTO cierres (id, sorteo_id, nombre, fecha, reservas, creado) VALUES (?, ?, ?, ?, ?, ?)').run(
+              randomUUID(),
+              id,
+              s.nombre,
+              s.fecha,
+              JSON.stringify(filas),
+              r.ahora,
+            );
+          q(`DELETE FROM reservas WHERE sorteo_id = ?${r.conservarFijos ? " AND tipo <> 'fijo'" : ''}`).run(id);
+          // Los fijos siguen con sus números, pero el pago es de cada día.
+          conservados = Number(
+            q("UPDATE reservas SET pagado = 0, dispositivo_id = NULL, ip = '' WHERE sorteo_id = ?").run(id).changes,
+          );
+          q('DELETE FROM liberados WHERE sorteo_id = ?').run(id);
+          q('UPDATE sorteos SET fecha = ?, abre = ? WHERE id = ?').run(r.fecha, r.abre, id);
+        });
+        return { sorteo: (await this.obtener(id))!, archivadas, conservados };
       },
     },
 
@@ -157,13 +262,33 @@ export function reposSqlite(db: Db): Repos {
         );
         try {
           transaccion(db, () => {
+            if (origen?.maxCelular) {
+              const f = q('SELECT count(*) AS n FROM reservas WHERE sorteo_id = ? AND telefono = ?').get(
+                sorteoId,
+                persona.telefono,
+              ) as Fila;
+              if (Number(f.n) + numeros.length > origen.maxCelular) throw new LimiteCelular(Number(f.n));
+            }
             if (origen?.max) {
-              const f = q('SELECT count(*) AS n FROM reservas WHERE sorteo_id = ? AND dispositivo_id = ?').get(sorteoId, origen.dispositivo) as Fila;
+              const f = q('SELECT count(*) AS n FROM reservas WHERE sorteo_id = ? AND dispositivo_id = ?').get(
+                sorteoId,
+                origen.dispositivo,
+              ) as Fila;
               if (Number(f.n) + numeros.length > origen.max) throw new LimiteDispositivo(Number(f.n));
             }
             const creado = ahoraIso();
             for (const n of numeros)
-              ins.run(randomUUID(), sorteoId, n, persona.telefono, persona.nombre, tipo, creado, origen?.dispositivo ?? null, origen?.ip ?? '');
+              ins.run(
+                randomUUID(),
+                sorteoId,
+                n,
+                persona.telefono,
+                persona.nombre,
+                tipo,
+                creado,
+                origen?.dispositivo || null,
+                origen?.ip ?? '',
+              );
           });
         } catch (e) {
           if (!esUnicidad(e)) throw e;
@@ -175,7 +300,12 @@ export function reposSqlite(db: Db): Repos {
       async marcarPago(sorteoId, telefono, pagado, numeros) {
         const { sql, args } = filtroNumeros(numeros);
         return Number(
-          q(`UPDATE reservas SET pagado = ? WHERE sorteo_id = ? AND telefono = ?${sql}`).run(pagado ? 1 : 0, sorteoId, telefono, ...args).changes,
+          q(`UPDATE reservas SET pagado = ? WHERE sorteo_id = ? AND telefono = ?${sql}`).run(
+            pagado ? 1 : 0,
+            sorteoId,
+            telefono,
+            ...args,
+          ).changes,
         );
       },
       async liberar(sorteoId, telefono, numeros, ahora = ahoraIso()) {
@@ -187,23 +317,26 @@ export function reposSqlite(db: Db): Repos {
              SELECT lower(hex(randomblob(16))), sorteo_id, numero, telefono, nombre, tipo, pagado, ? FROM reservas
              WHERE sorteo_id = ? AND telefono = ?${sql}`,
           ).run(ahora, sorteoId, telefono, ...args);
-          n = Number(q(`DELETE FROM reservas WHERE sorteo_id = ? AND telefono = ?${sql}`).run(sorteoId, telefono, ...args).changes);
+          n = Number(
+            q(`DELETE FROM reservas WHERE sorteo_id = ? AND telefono = ?${sql}`).run(sorteoId, telefono, ...args)
+              .changes,
+          );
         });
         return n;
       },
       async liberados(sorteoId) {
-        return (q('SELECT * FROM liberados WHERE sorteo_id = ? ORDER BY liberado DESC, numero').all(sorteoId) as Fila[]).map(
-          (f): Liberado => ({
-            id: String(f.id),
-            sorteo_id: String(f.sorteo_id),
-            numero: Number(f.numero),
-            telefono: String(f.telefono),
-            nombre: String(f.nombre),
-            tipo: f.tipo === 'fijo' ? 'fijo' : 'cliente',
-            pagado: Number(f.pagado) === 1,
-            liberado: String(f.liberado),
-          }),
-        );
+        return (
+          q('SELECT * FROM liberados WHERE sorteo_id = ? ORDER BY liberado DESC, numero').all(sorteoId) as Fila[]
+        ).map((f): Liberado => ({
+          id: String(f.id),
+          sorteo_id: String(f.sorteo_id),
+          numero: Number(f.numero),
+          telefono: String(f.telefono),
+          nombre: String(f.nombre),
+          tipo: f.tipo === 'fijo' ? 'fijo' : 'cliente',
+          pagado: Number(f.pagado) === 1,
+          liberado: String(f.liberado),
+        }));
       },
       async borrarLiberados(sorteoId) {
         return Number(q('DELETE FROM liberados WHERE sorteo_id = ?').run(sorteoId).changes);
@@ -220,8 +353,19 @@ export function reposSqlite(db: Db): Repos {
           let g = por.get(s.id);
           if (!g) {
             g = {
-              id: s.id, nombre: s.nombre, fecha: s.fecha, hora: s.hora, jornada: s.jornada, valor_boleta: s.valor_boleta,
-              nequi: s.nequi, nequi_titular: s.nequi_titular, color: s.color, imagen: s.imagen, numeros: [], pagados: [],
+              id: s.id,
+              nombre: s.nombre,
+              fecha: s.fecha,
+              hora: s.hora,
+              jornada: s.jornada,
+              valor_boleta: s.valor_boleta,
+              nequi: s.nequi,
+              nequi_titular: s.nequi_titular,
+              color: s.color,
+              imagen: s.imagen,
+              gratis: s.gratis,
+              numeros: [],
+              pagados: [],
             };
             por.set(s.id, g);
           }
@@ -236,19 +380,25 @@ export function reposSqlite(db: Db): Repos {
 
     contactos: {
       async buscar(telefono) {
-        return (q('SELECT telefono, nombre, creado FROM contactos WHERE telefono = ?').get(telefono) as Contacto | undefined) ?? null;
+        return (
+          (q('SELECT telefono, nombre, creado FROM contactos WHERE telefono = ?').get(telefono) as
+            Contacto | undefined) ?? null
+        );
       },
       async buscarPorNombre(nombre) {
         return (
-          (q('SELECT telefono, nombre, creado FROM contactos WHERE lower(trim(nombre)) = lower(trim(?)) LIMIT 1').get(nombre) as
-            | Contacto
-            | undefined) ?? null
+          (q('SELECT telefono, nombre, creado FROM contactos WHERE lower(trim(nombre)) = lower(trim(?)) LIMIT 1').get(
+            nombre,
+          ) as Contacto | undefined) ?? null
         );
       },
       async listar(texto) {
         const t = (texto ?? '').trim().toLowerCase();
         const d = t.replace(/\D/g, '');
-        if (!t) return q('SELECT telefono, nombre, creado FROM contactos ORDER BY nombre COLLATE NOCASE LIMIT 300').all() as unknown as Contacto[];
+        if (!t)
+          return q(
+            'SELECT telefono, nombre, creado FROM contactos ORDER BY nombre COLLATE NOCASE LIMIT 300',
+          ).all() as unknown as Contacto[];
         return q(
           `SELECT telefono, nombre, creado FROM contactos
            WHERE lower(nombre) LIKE ? OR (? <> '' AND telefono LIKE ?) ORDER BY nombre COLLATE NOCASE LIMIT 300`,
@@ -260,7 +410,9 @@ export function reposSqlite(db: Db): Repos {
           c.nombre,
           ahoraIso(),
         );
-        return q('SELECT telefono, nombre, creado FROM contactos WHERE telefono = ?').get(c.telefono) as unknown as Contacto;
+        return q('SELECT telefono, nombre, creado FROM contactos WHERE telefono = ?').get(
+          c.telefono,
+        ) as unknown as Contacto;
       },
       async guardar(lista) {
         const st = q(
@@ -277,7 +429,8 @@ export function reposSqlite(db: Db): Repos {
       async editar(antes, c) {
         if (!q('SELECT 1 FROM contactos WHERE telefono = ?').get(antes)) return false;
         if (c.telefono !== antes) {
-          const otro = q('SELECT telefono, nombre FROM contactos WHERE telefono = ?').get(c.telefono) as Contacto | undefined;
+          const otro = q('SELECT telefono, nombre FROM contactos WHERE telefono = ?').get(c.telefono) as
+            Contacto | undefined;
           if (otro) throw new CelularDeOtro(otro);
         }
         transaccion(db, () => {
@@ -297,11 +450,19 @@ export function reposSqlite(db: Db): Repos {
           premio_tres: String(f.premio_tres),
           prob_dos: Number(f.prob_dos),
           premio_dos: String(f.premio_dos),
+          premios_tres: premiosDe(f.premios_tres),
         };
       },
       async guardarConfig(c) {
-        q('UPDATE config_ruleta SET activo = ?, prob_tres = ?, premio_tres = ?, prob_dos = ?, premio_dos = ? WHERE id = 1').run(
-          c.activo ? 1 : 0, c.prob_tres, c.premio_tres, c.prob_dos, c.premio_dos,
+        q(
+          'UPDATE config_ruleta SET activo = ?, prob_tres = ?, premio_tres = ?, prob_dos = ?, premio_dos = ?, premios_tres = ? WHERE id = 1',
+        ).run(
+          c.activo ? 1 : 0,
+          c.prob_tres,
+          c.premio_tres,
+          c.prob_dos,
+          c.premio_dos,
+          JSON.stringify(premiosDe(c.premios_tres)),
         );
       },
       async giroDe(telefono, fecha) {
@@ -311,8 +472,16 @@ export function reposSqlite(db: Db): Repos {
       async registrar(g) {
         const nuevo: Giro = { ...g, id: randomUUID(), reclamado: false, creado: ahoraIso() };
         try {
-          q('INSERT INTO giros (id, telefono, fecha, resultado, gano, premio, reclamado, creado) VALUES (?, ?, ?, ?, ?, ?, 0, ?)').run(
-            nuevo.id, nuevo.telefono, nuevo.fecha, JSON.stringify(nuevo.resultado), nuevo.gano, nuevo.premio, nuevo.creado,
+          q(
+            'INSERT INTO giros (id, telefono, fecha, resultado, gano, premio, reclamado, creado) VALUES (?, ?, ?, ?, ?, ?, 0, ?)',
+          ).run(
+            nuevo.id,
+            nuevo.telefono,
+            nuevo.fecha,
+            JSON.stringify(nuevo.resultado),
+            nuevo.gano,
+            nuevo.premio,
+            nuevo.creado,
           );
         } catch (e) {
           if (esUnicidad(e)) throw new YaGiro();
@@ -367,9 +536,9 @@ export function reposSqlite(db: Db): Repos {
       async guardar(a) {
         const act = await this.obtener();
         const n = { ...act, ...a };
-        q('UPDATE ajustes SET negocio = ?, whatsapp = ?, plantilla = ?, plantilla_ticket = ?, diseno = ? WHERE id = 1').run(
-          n.negocio, n.whatsapp, n.plantilla, n.plantilla_ticket, JSON.stringify(n.diseno),
-        );
+        q(
+          'UPDATE ajustes SET negocio = ?, whatsapp = ?, plantilla = ?, plantilla_ticket = ?, diseno = ? WHERE id = 1',
+        ).run(n.negocio, n.whatsapp, n.plantilla, n.plantilla_ticket, JSON.stringify(n.diseno));
       },
     },
 
@@ -385,7 +554,12 @@ export function reposSqlite(db: Db): Repos {
       async crear(usuario, claveHash) {
         const id = randomUUID();
         try {
-          q('INSERT INTO admins (id, usuario, clave_hash, activo, creado) VALUES (?, ?, ?, 1, ?)').run(id, usuario, claveHash, ahoraIso());
+          q('INSERT INTO admins (id, usuario, clave_hash, activo, creado) VALUES (?, ?, ?, 1, ?)').run(
+            id,
+            usuario,
+            claveHash,
+            ahoraIso(),
+          );
         } catch (e) {
           if (esUnicidad(e)) throw new UsuarioRepetido();
           throw e;
@@ -408,14 +582,15 @@ export function reposSqlite(db: Db): Repos {
 
     sesiones: {
       async crear(s) {
-        q('INSERT INTO sesiones (id, admin_id, creada, ultimo_uso, expira, ip, agente) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
-          s.id, s.admin_id, s.creada, s.ultimo_uso, s.expira, s.ip, s.agente.slice(0, 300),
-        );
+        q(
+          'INSERT INTO sesiones (id, admin_id, creada, ultimo_uso, expira, ip, agente) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        ).run(s.id, s.admin_id, s.creada, s.ultimo_uso, s.expira, s.ip, s.agente.slice(0, 300));
       },
       async obtener(id) {
-        return (q('SELECT id, admin_id, creada, ultimo_uso, expira FROM sesiones WHERE id = ?').get(id) as
-          | { id: string; admin_id: string; creada: string; ultimo_uso: string; expira: string }
-          | undefined) ?? null;
+        return (
+          (q('SELECT id, admin_id, creada, ultimo_uso, expira FROM sesiones WHERE id = ?').get(id) as
+            { id: string; admin_id: string; creada: string; ultimo_uso: string; expira: string } | undefined) ?? null
+        );
       },
       async tocar(id, ahora) {
         q('UPDATE sesiones SET ultimo_uso = ? WHERE id = ?').run(ahora, id);
@@ -431,7 +606,13 @@ export function reposSqlite(db: Db): Repos {
     medios: {
       async registrar(m) {
         q('INSERT INTO medios (id, ruta, uso, ancho, alto, peso, creado) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
-          m.id, m.ruta, m.uso, m.ancho, m.alto, m.peso, ahoraIso(),
+          m.id,
+          m.ruta,
+          m.uso,
+          m.ancho,
+          m.alto,
+          m.peso,
+          ahoraIso(),
         );
       },
       async existe(ruta) {
@@ -473,18 +654,33 @@ export function reposSqlite(db: Db): Repos {
       async registrarIntento(i) {
         q(
           'INSERT INTO intentos (id, dispositivo_id, ip, sorteo_id, telefono, nombre, numeros, resultado, creado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        ).run(randomUUID(), i.dispositivo_id, i.ip, i.sorteo_id, i.telefono, i.nombre.slice(0, 60), JSON.stringify(i.numeros), i.resultado, ahoraIso());
+        ).run(
+          randomUUID(),
+          i.dispositivo_id,
+          i.ip,
+          i.sorteo_id,
+          i.telefono,
+          i.nombre.slice(0, 60),
+          JSON.stringify(i.numeros),
+          i.resultado,
+          ahoraIso(),
+        );
       },
       async alertar(a) {
         const ahora = ahoraIso();
         const previa = q(
           'SELECT id FROM alertas WHERE vista = 0 AND tipo = ? AND dispositivo_id = ? AND sorteo_id = ? AND ip = ?',
         ).get(a.tipo, a.dispositivo_id, a.sorteo_id, a.ip) as Fila | undefined;
-        if (previa) q('UPDATE alertas SET detalle = ?, veces = veces + 1, creado = ? WHERE id = ?').run(a.detalle, ahora, String(previa.id));
-        else
-          q('INSERT INTO alertas (id, tipo, dispositivo_id, ip, sorteo_id, detalle, creado) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
-            randomUUID(), a.tipo, a.dispositivo_id, a.ip, a.sorteo_id, a.detalle, ahora,
+        if (previa)
+          q('UPDATE alertas SET detalle = ?, veces = veces + 1, creado = ? WHERE id = ?').run(
+            a.detalle,
+            ahora,
+            String(previa.id),
           );
+        else
+          q(
+            'INSERT INTO alertas (id, tipo, dispositivo_id, ip, sorteo_id, detalle, creado) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          ).run(randomUUID(), a.tipo, a.dispositivo_id, a.ip, a.sorteo_id, a.detalle, ahora);
       },
       async alertas(limite = 50) {
         return (
@@ -492,20 +688,18 @@ export function reposSqlite(db: Db): Repos {
             `SELECT a.*, coalesce(s.nombre, '') AS sorteo FROM alertas a LEFT JOIN sorteos s ON s.id = a.sorteo_id
              ORDER BY a.vista, a.creado DESC LIMIT ?`,
           ).all(limite) as Fila[]
-        ).map(
-          (f): AlertaSeguridad => ({
-            id: String(f.id),
-            tipo: String(f.tipo),
-            dispositivo_id: String(f.dispositivo_id),
-            ip: String(f.ip),
-            sorteo_id: String(f.sorteo_id),
-            sorteo: String(f.sorteo),
-            detalle: String(f.detalle),
-            veces: Number(f.veces),
-            vista: Number(f.vista) === 1,
-            creado: String(f.creado),
-          }),
-        );
+        ).map((f): AlertaSeguridad => ({
+          id: String(f.id),
+          tipo: String(f.tipo),
+          dispositivo_id: String(f.dispositivo_id),
+          ip: String(f.ip),
+          sorteo_id: String(f.sorteo_id),
+          sorteo: String(f.sorteo),
+          detalle: String(f.detalle),
+          veces: Number(f.veces),
+          vista: Number(f.vista) === 1,
+          creado: String(f.creado),
+        }));
       },
       async pendientes() {
         return Number((q('SELECT count(*) AS n FROM alertas WHERE vista = 0').get() as Fila).n);
@@ -567,11 +761,16 @@ export function reposSqlite(db: Db): Repos {
               d.id.toLowerCase().startsWith(t) ||
               d.ip.includes(t) ||
               d.descripcion.toLowerCase().includes(t) ||
-              d.personas.some((p) => p.nombre.toLowerCase().includes(t) || (digitos.length >= 3 && p.telefono.includes(digitos))),
+              d.personas.some(
+                (p) => p.nombre.toLowerCase().includes(t) || (digitos.length >= 3 && p.telefono.includes(digitos)),
+              ),
           )
           .sort(
             (a, b) =>
-              Number(b.bloqueado) - Number(a.bloqueado) || b.apartados - a.apartados || b.rechazados - a.rechazados || b.visto.localeCompare(a.visto),
+              Number(b.bloqueado) - Number(a.bloqueado) ||
+              b.apartados - a.apartados ||
+              b.rechazados - a.rechazados ||
+              b.visto.localeCompare(a.visto),
           )
           .slice(0, 300);
       },
@@ -581,20 +780,18 @@ export function reposSqlite(db: Db): Repos {
             `SELECT i.*, coalesce(s.nombre, '') AS sorteo FROM intentos i LEFT JOIN sorteos s ON s.id = i.sorteo_id
              WHERE i.dispositivo_id = ? ORDER BY i.creado DESC LIMIT ?`,
           ).all(dispositivo, limite) as Fila[]
-        ).map(
-          (f): IntentoReserva => ({
-            id: String(f.id),
-            dispositivo_id: String(f.dispositivo_id),
-            ip: String(f.ip),
-            sorteo_id: String(f.sorteo_id),
-            sorteo: String(f.sorteo),
-            telefono: String(f.telefono),
-            nombre: String(f.nombre),
-            numeros: JSON.parse(String(f.numeros)),
-            resultado: String(f.resultado),
-            creado: String(f.creado),
-          }),
-        );
+        ).map((f): IntentoReserva => ({
+          id: String(f.id),
+          dispositivo_id: String(f.dispositivo_id),
+          ip: String(f.ip),
+          sorteo_id: String(f.sorteo_id),
+          sorteo: String(f.sorteo),
+          telefono: String(f.telefono),
+          nombre: String(f.nombre),
+          numeros: JSON.parse(String(f.numeros)),
+          resultado: String(f.resultado),
+          creado: String(f.creado),
+        }));
       },
       async bloquear(id, bloqueado, motivo = '') {
         const r = q('UPDATE dispositivos SET bloqueado = ?, bloqueado_en = ?, motivo = ? WHERE id = ?').run(
@@ -609,9 +806,9 @@ export function reposSqlite(db: Db): Repos {
         let liberados = 0;
         let sorteos: string[] = [];
         transaccion(db, () => {
-          sorteos = (q('SELECT DISTINCT sorteo_id FROM reservas WHERE dispositivo_id = ? AND pagado = 0').all(id) as Fila[]).map((f) =>
-            String(f.sorteo_id),
-          );
+          sorteos = (
+            q('SELECT DISTINCT sorteo_id FROM reservas WHERE dispositivo_id = ? AND pagado = 0').all(id) as Fila[]
+          ).map((f) => String(f.sorteo_id));
           q(
             `INSERT INTO liberados (id, sorteo_id, numero, telefono, nombre, tipo, pagado, liberado)
              SELECT lower(hex(randomblob(16))), sorteo_id, numero, telefono, nombre, tipo, pagado, ? FROM reservas
@@ -625,8 +822,17 @@ export function reposSqlite(db: Db): Repos {
 
     auditoria: {
       async anotar(a) {
-        q('INSERT INTO auditoria (id, admin_id, accion, entidad, entidad_id, detalle, ip, creado) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
-          randomUUID(), a.admin_id ?? null, a.accion, a.entidad ?? '', a.entidad_id ?? '', a.detalle ?? '', a.ip ?? '', ahoraIso(),
+        q(
+          'INSERT INTO auditoria (id, admin_id, accion, entidad, entidad_id, detalle, ip, creado) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        ).run(
+          randomUUID(),
+          a.admin_id ?? null,
+          a.accion,
+          a.entidad ?? '',
+          a.entidad_id ?? '',
+          a.detalle ?? '',
+          a.ip ?? '',
+          ahoraIso(),
         );
       },
     },

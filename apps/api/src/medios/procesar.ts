@@ -15,6 +15,7 @@ const LADO_MAXIMO: Record<UsoMedio, number> = {
   mascota: 600,
   boton: 600,
   ocupado: 600,
+  agotado: 1200,
 };
 
 export const PESO_MAXIMO = 8 * 1024 * 1024;

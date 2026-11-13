@@ -1,8 +1,13 @@
 /**
  * Esquema SQLite. Las garantías de docs/05 §5 viven aquí como restricciones,
  * no como consultas previas en el código.
+ *
+ * Una migración es SQL o { sql, sinClaves }. Con sinClaves se apagan las claves foráneas mientras corre:
+ * es la forma que pide SQLite para reconstruir una tabla (cambiar un CHECK) sin borrar en cascada sus hijas.
  */
-export const MIGRACIONES: string[] = [
+export type Migracion = string | { sql: string; sinClaves: true };
+
+export const MIGRACIONES: Migracion[] = [
   `
   CREATE TABLE sorteos (
     id TEXT PRIMARY KEY,
@@ -185,4 +190,63 @@ export const MIGRACIONES: string[] = [
 
   ALTER TABLE ajustes ADD COLUMN limite_dispositivo INTEGER NOT NULL DEFAULT 20 CHECK (limite_dispositivo BETWEEN 0 AND 100);
   `,
+  // 5: sorteos gratis (valor 0), máximo de números por persona, apertura programada, imagen de "todos vendidos",
+  // encabezado y final de la lista para WhatsApp; historial de cierres al reiniciar; premios de la ruleta por símbolo.
+  // valor_boleta pasa de "> 0" a ">= 0 (solo si es gratis)": cambiar un CHECK obliga a reconstruir la tabla.
+  {
+    sinClaves: true,
+    sql: `
+  CREATE TABLE sorteos_nueva (
+    id TEXT PRIMARY KEY,
+    nombre TEXT NOT NULL CHECK (length(nombre) > 0),
+    loteria TEXT NOT NULL DEFAULT '',
+    jornada TEXT NOT NULL DEFAULT 'dia' CHECK (jornada IN ('dia','noche')),
+    fecha TEXT,
+    hora TEXT NOT NULL DEFAULT '',
+    orden INTEGER NOT NULL DEFAULT 0,
+    color TEXT NOT NULL DEFAULT '',
+    etiqueta TEXT NOT NULL DEFAULT '',
+    activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1)),
+    valor_boleta INTEGER NOT NULL CHECK (valor_boleta >= 0),
+    premio_total INTEGER NOT NULL DEFAULT 0 CHECK (premio_total >= 0),
+    premio_ultimas INTEGER NOT NULL DEFAULT 0 CHECK (premio_ultimas >= 0),
+    premio_primeras INTEGER NOT NULL DEFAULT 0 CHECK (premio_primeras >= 0),
+    premio_medio INTEGER NOT NULL DEFAULT 0 CHECK (premio_medio >= 0),
+    nequi TEXT NOT NULL DEFAULT '',
+    nequi_titular TEXT NOT NULL DEFAULT '',
+    imagen TEXT NOT NULL DEFAULT '',
+    logo_loteria TEXT NOT NULL DEFAULT '',
+    logo_ocupado TEXT NOT NULL DEFAULT '',
+    fondo_imagen TEXT NOT NULL DEFAULT '',
+    creado TEXT NOT NULL,
+    gratis INTEGER NOT NULL DEFAULT 0 CHECK (gratis IN (0,1)),
+    max_por_celular INTEGER NOT NULL DEFAULT 0 CHECK (max_por_celular BETWEEN 0 AND 100),
+    abre TEXT CHECK (abre IS NULL OR abre GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]'),
+    imagen_agotado TEXT NOT NULL DEFAULT '',
+    lista_encabezado TEXT NOT NULL DEFAULT '',
+    lista_pie TEXT NOT NULL DEFAULT '',
+    CHECK (gratis = 1 OR valor_boleta > 0)
+  );
+  INSERT INTO sorteos_nueva (id, nombre, loteria, jornada, fecha, hora, orden, color, etiqueta, activo, valor_boleta,
+    premio_total, premio_ultimas, premio_primeras, premio_medio, nequi, nequi_titular, imagen, logo_loteria, logo_ocupado,
+    fondo_imagen, creado)
+  SELECT id, nombre, loteria, jornada, fecha, hora, orden, color, etiqueta, activo, valor_boleta,
+    premio_total, premio_ultimas, premio_primeras, premio_medio, nequi, nequi_titular, imagen, logo_loteria, logo_ocupado,
+    fondo_imagen, creado FROM sorteos;
+  DROP TABLE sorteos;
+  ALTER TABLE sorteos_nueva RENAME TO sorteos;
+
+  CREATE TABLE cierres (
+    id TEXT PRIMARY KEY,
+    sorteo_id TEXT NOT NULL REFERENCES sorteos(id) ON DELETE CASCADE,
+    nombre TEXT NOT NULL,
+    fecha TEXT,
+    reservas TEXT NOT NULL,
+    creado TEXT NOT NULL
+  );
+  CREATE INDEX cierres_sorteo ON cierres(sorteo_id, creado);
+
+  ALTER TABLE config_ruleta ADD COLUMN premios_tres TEXT NOT NULL DEFAULT '{}';
+  `,
+  },
 ];

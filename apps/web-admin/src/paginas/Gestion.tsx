@@ -7,7 +7,8 @@ import {
   dosDigitos,
   formatearFecha,
   formatearTelefono,
-  listaFinal,
+  formatearApertura,
+  sorteoAbierto,
   nombresRepetidos,
   PLANTILLA_BASE,
   type Sorteo,
@@ -17,6 +18,8 @@ import { api } from '../api/cliente.ts';
 import { Cargando, ErrorPanel, useAjustes, usePublico } from '../componentes/Marco.tsx';
 import { VentanaImagen } from '../componentes/VentanaImagen.tsx';
 import { ApartarNumeros, type Prellenado } from '../componentes/ApartarNumeros.tsx';
+import { ListaGrupo } from '../componentes/ListaGrupo.tsx';
+import { ReiniciarSorteo } from '../componentes/ReiniciarSorteo.tsx';
 import { FilaParticipante, type AccionesFila } from '../componentes/FilaParticipante.tsx';
 
 // Avisos de fijos que no se agregaron, para mostrarlos al llegar a la gestión.
@@ -41,7 +44,6 @@ export function PaginaGestion() {
   }, []);
   const [fijos, setFijos] = useState('');
   const [origen, setOrigen] = useState('');
-  const [libres, setLibres] = useState(false);
   const [ventana, setVentana] = useState(false);
   const [ocupado, setOcupado] = useState(false);
 
@@ -59,6 +61,10 @@ export function PaginaGestion() {
   const plantilla = aj.data?.plantilla || PLANTILLA_BASE;
   const link = publico(`/sorteo/${s.id}`);
   const otros = (todos.data ?? []).filter((x) => x.id !== s.id);
+  const actualizarSorteo = (nuevo: Sorteo) => {
+    qc.setQueryData(['sorteo', id], nuevo);
+    void qc.invalidateQueries({ queryKey: ['sorteos'] });
+  };
   const recargar = () =>
     Promise.all([
       qc.invalidateQueries({ queryKey: ['reservas', id] }),
@@ -123,8 +129,14 @@ export function PaginaGestion() {
           <h2>{s.nombre}</h2>
           <p className="muted small">
             {formatearFecha(s.fecha)}
-            {s.hora ? ' · ' + s.hora : ''} · {dinero(s.valor_boleta)} la boleta {!s.activo && <b>· oculto</b>}
+            {s.hora ? ' · ' + s.hora : ''} · {s.gratis ? <b>gratis</b> : `${dinero(s.valor_boleta)} la boleta`}
+            {s.max_por_celular > 0 && ` · máx. ${s.max_por_celular} por persona`} {!s.activo && <b>· oculto</b>}
           </p>
+          {s.activo && !sorteoAbierto(s, new Date()) && (
+            <p className="small">
+              <span className="pill">Programado</span> Se abre a los clientes el <b>{formatearApertura(s.abre)}</b>
+            </p>
+          )}
         </div>
         <div className="row-actions">
           <button className="btn btn-sm btn-sun" onClick={() => setVentana(true)}>
@@ -154,14 +166,23 @@ export function PaginaGestion() {
           <small>Ocupados</small>
           <b>{reservas.length}/100</b>
         </div>
-        <div className="stat">
-          <small>Pagado</small>
-          <b>{dinero(pagados * s.valor_boleta)}</b>
-        </div>
-        <div className="stat">
-          <small>Por cobrar</small>
-          <b>{dinero((reservas.length - pagados) * s.valor_boleta)}</b>
-        </div>
+        {s.gratis ? (
+          <div className="stat">
+            <small>Libres</small>
+            <b>{100 - reservas.length}</b>
+          </div>
+        ) : (
+          <>
+            <div className="stat">
+              <small>Pagado</small>
+              <b>{dinero(pagados * s.valor_boleta)}</b>
+            </div>
+            <div className="stat">
+              <small>Por cobrar</small>
+              <b>{dinero((reservas.length - pagados) * s.valor_boleta)}</b>
+            </div>
+          </>
+        )}
         <div className="stat">
           <small>Personas</small>
           <b>{grupos.length}</b>
@@ -355,28 +376,16 @@ export function PaginaGestion() {
           </p>
         )}
       </div>
-      <div className="panel stack">
-        <div className="adm-head">
-          <h3>Lista final</h3>
-          <BotonCopiar className="btn btn-sm btn-primary" texto={listaFinal(s, reservas, libres)}>
-            Copiar lista
-          </BotonCopiar>
-        </div>
-        <label className="check">
-          <input type="checkbox" checked={libres} onChange={(e) => setLibres(e.target.checked)} /> Incluir los números
-          libres al final
-        </label>
-        <label htmlFor="g-lista" className="oculto">
-          Lista final
-        </label>
-        <textarea
-          id="g-lista"
-          readOnly
-          style={{ minHeight: 220, fontVariantNumeric: 'tabular-nums' }}
-          value={listaFinal(s, reservas, libres)}
-        />
-        <p className="hint">Cada número aparece una sola vez y cada persona una sola línea.</p>
-      </div>
+      <ListaGrupo key={s.id} s={s} reservas={reservas} alGuardar={actualizarSorteo} />
+      <ReiniciarSorteo
+        key={`r-${s.id}-${s.fecha}`}
+        s={s}
+        reservas={reservas}
+        alTerminar={async (nuevo) => {
+          actualizarSorteo(nuevo);
+          await recargar();
+        }}
+      />
       {ventana && (
         <VentanaImagen
           sorteo={s}

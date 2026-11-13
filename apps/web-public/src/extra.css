@@ -75,7 +75,13 @@ body {
   display: grid;
   place-items: center;
   cursor: pointer;
-  background: linear-gradient(180deg, #2f8fe0 0%, #5db2f0 38%, #a9d8f7 64%, #f6e8f0 82%, #f3e9ef 100%);
+  /* Cielo a pantalla completa: sin el piso de nubes blanco de la ruleta (se veía como una franja blanca abajo). */
+  background: linear-gradient(180deg, #2f8fe0 0%, #4ea6ec 45%, #7cc3f3 75%, #a9d8f7 100%);
+  min-height: 100vh;
+  min-height: 100lvh;
+}
+.intro .c-nubes .n3 {
+  display: none;
 }
 .intro .c-nubes {
   position: absolute;
@@ -151,7 +157,8 @@ body {
   left: 0;
   right: 0;
   text-align: center;
-  color: #3c2e5a;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgb(0 40 90 / 0.45);
   font-size: 13px;
   font-weight: 700;
   opacity: 0;
@@ -250,3 +257,85 @@ main.sin-encabezado .back {
 .legend .en-vivo i{width:8px;height:8px;border-radius:50%;border:0;background:var(--green);vertical-align:1px;animation:latido 1.6s ease-in-out infinite}
 @keyframes latido{0%,100%{opacity:1}50%{opacity:.3}}
 @media (prefers-reduced-motion:reduce){.legend .en-vivo i,.aviso-tomados{animation:none}}
+
+/* Sorteo gratis, máximo por persona y "todos vendidos" */
+.vale-boleta {
+  display: block;
+}
+.vale-gratis b {
+  color: #138a4a;
+}
+.pc-gratis {
+  --neon: #3ef08a;
+}
+.agotado {
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  background: var(--card);
+}
+.agotado img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 72svh;
+  object-fit: contain;
+  background: #0f1a2e;
+}
+.agotado-base {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 36px 20px;
+  background: linear-gradient(160deg, var(--c1, #2f8fe0), var(--c2, #1b5fb0));
+  color: #ffffff;
+}
+.agotado-base svg {
+  width: 84px;
+  height: 84px;
+  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.3));
+}
+.agotado-base b {
+  font: 400 clamp(26px, 8vw, 40px) / 1.05 'Luckiest Guy', 'Lilita One', Impact, sans-serif;
+  text-transform: uppercase;
+  text-shadow: 0 3px 0 rgb(0 0 0 / 0.25);
+}
+.agotado-base span {
+  opacity: 0.92;
+  max-width: 32ch;
+}
+
+/* Sorteo con apertura programada */
+.sin-abrir {
+  text-align: center;
+  align-items: center;
+}
+.sa-reloj {
+  font-size: 46px;
+  line-height: 1;
+}
+
+/* Ticket de un sorteo gratis */
+.ticket-gratis .t-top {
+  position: relative;
+}
+.tg-sello {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 52px;
+  height: 52px;
+  transform: rotate(12deg);
+}
+.tg-sello svg {
+  width: 100%;
+  height: 100%;
+}
+.tg-gracias {
+  text-align: center;
+}
+.tg-gracias b {
+  font: 800 20px/1.2 var(--f-display);
+}
